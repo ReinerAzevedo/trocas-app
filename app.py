@@ -2,14 +2,14 @@ import streamlit as st
 import pandas as pd
 import io
 
-# Configuração estável de layout
+# Configuração de layout estável
 st.set_page_config(
     page_title="Gerenciador de Trocas", 
     page_icon="🔄", 
     layout="centered"
 )
 
-# Estilização CSS para a visualização na tela do celular/PC
+# Estilização CSS para a visualização na tela
 st.markdown("""
     <style>
     .supplier-header {
@@ -48,7 +48,7 @@ uploaded_file = st.file_uploader("Selecione a planilha (.xlsx)", type=["xlsx"])
 
 if uploaded_file is not None:
     try:
-        # Leitura exata da planilha do sistema
+        # Leitura da planilha do sistema
         df = pd.read_excel(uploaded_file, sheet_name=0)
         df_clean = df.iloc[16:].copy()
         df_clean.columns = df_clean.iloc[0]
@@ -78,35 +78,43 @@ if uploaded_file is not None:
         grand_total_qty = 0
         grand_total_val = 0.0
 
-        # Início do buffer para a exportação do Excel
+        # Criação do buffer do Excel
         buffer_excel = io.BytesIO()
         
         with pd.ExcelWriter(buffer_excel, engine='xlsxwriter') as writer:
             wb = writer.book
             ws = wb.add_worksheet('Trocas Formatado')
-            ws.hide_gridlines(2)
+            ws.hide_gridlines(2) # Linhas de grade explícitas
 
-            # Formatos do Excel
-            fmt_header = wb.add_format({'bold': True, 'font_color': 'white', 'bg_color': 'black', 'font_name': 'Arial', 'font_size': 11, 'align': 'center'})
-            fmt_supplier = wb.add_format({'bold': True, 'font_color': '#FF0000', 'font_name': 'Arial', 'font_size': 14})
+            # --- FORMATOS DO EXCEL ---
+            fmt_header = wb.add_format({'bold': True, 'font_color': 'white', 'bg_color': 'black', 'font_name': 'Arial', 'font_size': 11})
+            fmt_header_center = wb.add_format({'bold': True, 'font_color': 'white', 'bg_color': 'black', 'font_name': 'Arial', 'font_size': 11, 'align': 'center'})
+            
+            fmt_supplier = wb.add_format({'bold': True, 'font_color': '#FF0000', 'font_name': 'Arial', 'font_size': 11})
             fmt_product = wb.add_format({'font_name': 'Arial', 'font_size': 10})
             fmt_center = wb.add_format({'font_name': 'Arial', 'font_size': 10, 'align': 'center'})
             fmt_qty = wb.add_format({'font_name': 'Arial', 'font_size': 10, 'num_format': '#,##0', 'align': 'center'})
             fmt_money = wb.add_format({'font_name': 'Arial', 'font_size': 10, 'num_format': 'R$ #,##0.00'})
+            
+            # Formatos de totais em Vermelho e Negrito baseados estritamente na imagem
             fmt_subtotal = wb.add_format({'bold': True, 'font_color': '#FF0000', 'font_name': 'Arial', 'font_size': 11})
             fmt_sub_qty = wb.add_format({'bold': True, 'font_color': '#FF0000', 'font_name': 'Arial', 'font_size': 11, 'num_format': '#,##0', 'align': 'center'})
             fmt_sub_val = wb.add_format({'bold': True, 'font_color': '#FF0000', 'font_name': 'Arial', 'font_size': 11, 'num_format': 'R$ #,##0.00'})
+            
             fmt_grand = wb.add_format({'bold': True, 'font_color': 'white', 'bg_color': '#FF0000', 'font_name': 'Arial', 'font_size': 12})
             fmt_grand_qty = wb.add_format({'bold': True, 'font_color': 'white', 'bg_color': '#FF0000', 'font_name': 'Arial', 'font_size': 12, 'num_format': '#,##0', 'align': 'center'})
             fmt_grand_val = wb.add_format({'bold': True, 'font_color': 'white', 'bg_color': '#FF0000', 'font_name': 'Arial', 'font_size': 12, 'num_format': 'R$ #,##0.00'})
 
-            headers = ["Fornecedor / Produto", "Código Interno", "Última Compra", "Estoque", "Total"]
-            for col_num, header in enumerate(headers):
-                ws.write(0, col_num, header, fmt_header)
+            # Cabeçalho padrão
+            ws.write(0, 0, "Fornecedor / Produto", fmt_header)
+            ws.write(0, 1, "Código Interno", fmt_header_center)
+            ws.write(0, 2, "Última Compra", fmt_header_center)
+            ws.write(0, 3, "Estoque", fmt_header_center)
+            ws.write(0, 4, "Total", fmt_header_center)
 
             excel_row = 1
 
-            # --- INÍCIO DA MONTAGEM DO HTML DE IMPRESSÃO ---
+            # HTML estruturado de Impressão (Mantido intacto)
             html_print = """<html><head><meta charset='utf-8'><style>
                 body { font-family: Arial; padding: 20px; }
                 h1 { font-size: 18px; text-align: center; margin-bottom: 20px; }
@@ -122,10 +130,10 @@ if uploaded_file is not None:
             <table><thead><tr><th>Fornecedor / Produto</th><th>Código Interno</th><th>Última Compra</th><th class='center'>Estoque</th><th class='right'>Total</th></tr></thead><tbody>"""
 
             for supplier, products in suppliers_dict.items():
-                # Interface Tela
+                # Exibição Tela
                 st.markdown(f'<div class="supplier-header">{supplier.upper()}</div>', unsafe_allow_html=True)
                 
-                # Excel & HTML Impressão
+                # Excel: Nome do Fornecedor na Coluna A (Vermelho e Negrito)
                 ws.write(excel_row, 0, supplier.upper(), fmt_supplier)
                 html_print += f"<tr><td colspan='5' class='sup'>{supplier.upper()}</td></tr>"
                 excel_row += 1
@@ -134,6 +142,7 @@ if uploaded_file is not None:
                 sub_val = 0.0
 
                 for p in products:
+                    # Excel: Itens abaixo do Fornecedor
                     ws.write(excel_row, 0, p['Produto'], fmt_product)
                     ws.write(excel_row, 1, p['Código Interno'], fmt_center)
                     ws.write(excel_row, 2, p['Última Compra'], fmt_center)
@@ -156,16 +165,17 @@ if uploaded_file is not None:
                 st.dataframe(view_df, use_container_width=True, hide_index=True)
                 st.markdown(f'<div class="total-supplier">TOTAL {supplier.upper()}: {sub_qty} itens — R$ {sub_val:,.2f}</div>', unsafe_allow_html=True)
 
-                # Subtotal no Excel & HTML Impressão
+                # Excel: Linha de totalizador do fornecedor na Coluna A (Tudo em Vermelho e Negrito)
                 ws.write(excel_row, 0, f"TOTAL {supplier.upper()}", fmt_subtotal)
                 ws.write(excel_row, 3, sub_qty, fmt_sub_qty)
                 ws.write(excel_row, 4, sub_val, fmt_sub_val)
                 
                 html_print += f"<tr class='sub'><td>TOTAL {supplier.upper()}</td><td></td><td></td><td class='center'>{sub_qty}</td><td class='right'>R$ {sub_val:,.2f}</td></tr>"
                 
+                # Avança as linhas mantendo o espaçamento exato da imagem
                 excel_row += 2
 
-            # Total Geral no Excel & HTML Impressão
+            # Excel: Total Geral Consolidado no fim
             ws.write(excel_row, 0, "TOTAL GERAL DOS FORNECEDORES", fmt_grand)
             ws.write(excel_row, 1, "", fmt_grand)
             ws.write(excel_row, 2, "", fmt_grand)
@@ -175,13 +185,14 @@ if uploaded_file is not None:
             html_print += f"<tr class='grand'><td style='padding:8px;'>TOTAL GERAL DOS FORNECEDORES</td><td></td><td></td><td class='center'>{grand_total_qty}</td><td class='right'>R$ {grand_total_val:,.2f}</td></tr>"
             html_print += "</tbody></table></body></html>"
 
+            # Larguras ideais das colunas
             ws.set_column(0, 0, 45)
             ws.set_column(1, 4, 15)
 
-        # Caixa final de resumo na tela
+        # Tela: Resumo
         st.markdown(f'<div class="grand-total-box">TOTAL GERAL DOS FORNECEDORES<br>Estoque: {grand_total_qty} | R$ {grand_total_val:,.2f}</div>', unsafe_allow_html=True)
 
-        # Barra lateral de ações estáveis
+        # Menu Lateral de Ações
         st.sidebar.markdown("### 📥 Ações")
         st.sidebar.download_button(
             label="💾 Exportar para Excel (.xlsx)",
@@ -190,7 +201,6 @@ if uploaded_file is not None:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
         
-        # SOLUÇÃO COMPATÍVEL MOBILE: Baixar o espelho HTML que dispara a impressão nativa ao abrir
         st.sidebar.download_button(
             label="🖨️ Imprimir / Gerar PDF",
             data=html_print,
