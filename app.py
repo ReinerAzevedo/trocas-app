@@ -5,7 +5,7 @@ from datetime import datetime
 
 # Configuração estável de layout
 st.set_page_config(
-    page_title="Gerenciador de Trocas v2.1", 
+    page_title="Gerenciador de Trocas v2.2", 
     page_icon="🔄", 
     layout="centered"
 )
@@ -45,78 +45,96 @@ st.markdown("""
         text-align: center !important;
         margin-top: 40px !important;
     }
+    .dept-tag {
+        font-size: 12px !important;
+        font-weight: bold !important;
+        color: #555555 !important;
+        background-color: #eeeeee !important;
+        padding: 3px 8px !important;
+        border-radius: 3px !important;
+        margin-left: 10px !important;
+        display: inline-block;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# --- ETAPA 1: CABEÇALHO COM VERSÃO E DATA/HORA ---
-versao_app = "v2.1"
-data_compilacao = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-st.markdown(f'<div class="version-header">Versão: {versao_app} | Compilado em: {data_compilacao}</div>', unsafe_allow_html=True)
+# --- CABEÇALHO COM VERSÃO E DATA/HORA ---
+versao_app = "v2.2"
+if 'data_compilacao' not in st.session_state:
+    st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+
+st.markdown(f'<div class="version-header">Versão: {versao_app} | Painel Ativo desde: {st.session_state["data_compilacao"]}</div>', unsafe_allow_html=True)
 
 st.title("🔄 Conversor de Planilhas de Trocas")
-st.write("Faça o upload da planilha bruta para gerar o relatório formatado.")
+st.write("Faça o upload das planilhas brutas de Mercearia e/ou Perecíveis para unificar.")
 
-# --- ETAPA 2: ATIVANDO A MEMÓRIA DO APP (SESSION STATE) ---
+# --- MEMÓRIA DO APP (SESSION STATE) ---
 if 'suppliers_dict' not in st.session_state:
     st.session_state['suppliers_dict'] = None
-if 'grand_qty' not in st.session_state:
-    st.session_state['grand_qty'] = 0
-if 'grand_val' not in st.session_state:
-    st.session_state['grand_val'] = 0.0
 if 'excel_buffer' not in st.session_state:
     st.session_state['excel_buffer'] = None
 if 'html_print' not in st.session_state:
     st.session_state['html_print'] = ""
 
-# Se o painel já tiver dados, mostra o botão de limpar na barra lateral
+# Botão de limpar na barra lateral
 if st.session_state['suppliers_dict'] is not None:
     if st.sidebar.button("🗑️ Limpar Painel / Novo Upload"):
         st.session_state['suppliers_dict'] = None
-        st.session_state['grand_qty'] = 0
-        st.session_state['grand_val'] = 0.0
         st.session_state['excel_buffer'] = None
         st.session_state['html_print'] = ""
+        st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         st.rerun()
 
-# Só mostra o campo de upload se a memória estiver vazia
+# Só mostra a área de upload se a memória estiver vazia
 if st.session_state['suppliers_dict'] is None:
-    uploaded_file = st.file_uploader("Selecione a planilha (.xlsx)", type=["xlsx"])
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        file_mercearia = st.file_uploader("Planilha MERCEARIA (.xlsx)", type=["xlsx"], key="merc")
+    with col2:
+        file_pereciveis = st.file_uploader("Planilha PERECÍVEIS (.xlsx)", type=["xlsx"], key="perec")
 
-    if uploaded_file is not None:
-        try:
-            # Leitura da planilha
-            df = pd.read_excel(uploaded_file, sheet_name=0)
-            df_clean = df.iloc[16:].copy()
-            df_clean.columns = df_clean.iloc[0]
-            df_clean = df_clean.iloc[1:].reset_index(drop=True)
-
-            current_supplier = None
+    # BOTÃO PROCESSAR INTELIGENTE QUE VOCÊ SUGERIU
+    if file_mercearia or file_pereciveis:
+        if st.button("🚀 Processar Planilhas Anexadas", use_container_width=True):
             temp_dict = {}
+            
+            # Função interna para ler cada tipo de planilha e marcar o departamento
+            def ler_planilha(uploaded_file, depto_name):
+                df = pd.read_excel(uploaded_file, sheet_name=0)
+                df_clean = df.iloc[16:].copy()
+                df_clean.columns = df_clean.iloc[0]
+                df_clean = df_clean.iloc[1:].reset_index(drop=True)
 
-            for idx, row in df_clean.iterrows():
-                f = row['Fornecedor']
-                if pd.notna(f):
-                    current_supplier = str(f).strip()
-                if pd.notna(row['Código Interno']):
-                    if current_supplier not in temp_dict:
-                        temp_dict[current_supplier] = []
-                    
-                    data_compra = str(row['Última Compra']).split()[0] if pd.notna(row['Última Compra']) else ""
-                    
-                    temp_dict[current_supplier].append({
-                        'Produto': row['Produto'],
-                        'Código Interno': int(row['Código Interno']),
-                        'Última Compra': data_compra,
-                        'Estoque': int(row['Estoque']) if pd.notna(row['Estoque']) else 0,
-                        'Total': float(row['Total']) if pd.notna(row['Total']) else 0.0
-                    })
+                current_supplier = None
+                for idx, row in df_clean.iterrows():
+                    f = row['Fornecedor']
+                    if pd.notna(f):
+                        current_supplier = str(f).strip().upper()
+                    if pd.notna(row['Código Interno']):
+                        if current_supplier not in temp_dict:
+                            temp_dict[current_supplier] = []
+                        
+                        data_compra = str(row['Última Compra']).split()[0] if pd.notna(row['Última Compra']) else ""
+                        
+                        temp_dict[current_supplier].append({
+                            'Produto': row['Produto'],
+                            'Código Interno': int(row['Código Interno']),
+                            'Última Compra': data_compra,
+                            'Estoque': int(row['Estoque']) if pd.notna(row['Estoque']) else 0,
+                            'Total': float(row['Total']) if pd.notna(row['Total']) else 0.0,
+                            'Departamento': depto_name
+                        })
 
-            # Guardando tudo na memória estável
-            st.session_state['suppliers_dict'] = temp_dict
-            st.rerun()
+            if file_mercearia:
+                ler_planilha(file_mercearia, "MERCEARIA")
+            if file_pereciveis:
+                ler_planilha(file_pereciveis, "PERECÍVEIS")
 
-        except Exception as e:
-            st.error(f"Erro no processamento dos dados: {e}")
+            if temp_dict:
+                # Ordena os fornecedores em ordem alfabética para ficar organizado
+                st.session_state['suppliers_dict'] = dict(sorted(temp_dict.items()))
+                st.rerun()
 
 # Se os dados estão na memória, renderiza o layout na tela e prepara os arquivos
 if st.session_state['suppliers_dict'] is not None:
@@ -166,16 +184,20 @@ if st.session_state['suppliers_dict'] is not None:
             .sub {{ color: red; font-weight: bold; font-size: 12px; border-bottom: 2px solid red; }}
             .grand {{ background: red; color: white; font-weight: bold; font-size: 13px; }}
             .center {{ text-align: center; }} .right {{ text-align: right; }}
+            .tag {{ font-size: 9px; background: #eee; color: #333; padding: 2px 5px; margin-left: 5px; border-radius: 3px; font-weight: normal; }}
         </style></head><body onload='window.print()'>
-        <div class="v-info">Versão: {versao_app} | Gerado em: {data_compilacao}</div>
-        <h1>Relatório de Estoque de Trocas por Fornecedor ou Produto</h1>
-        <h3><b>Departamento:</b> Mercearia | <b>Loja:</b> LU 10-MONGAGUA</h3>
+        <div class="v-info">Versão: {versao_app} | Gerado em: {st.session_state["data_compilacao"]}</div>
+        <h1>Relatório Unificado de Estoque de Trocas</h1>
+        <h3><b>Loja:</b> LU 10-MONGAGUA</h3>
         <table><thead><tr><th>Fornecedor / Produto</th><th>Código Interno</th><th>Última Compra</th><th class='center'>Estoque</th><th class='right'>Total</th></tr></thead><tbody>"""
 
         for supplier, products in suppliers_dict.items():
-            st.markdown(f'<div class="supplier-header">{supplier.upper()}</div>', unsafe_allow_html=True)
+            # Exibição na tela com Tag do Departamento
+            depto_tag = products[0]['Departamento']
+            st.markdown(f'<div class="supplier-header">{supplier.upper()} <span class="dept-tag">{depto_tag}</span></div>', unsafe_allow_html=True)
+            
             ws.write(excel_row, 0, supplier.upper(), fmt_supplier)
-            html_print += f"<tr><td colspan='5' class='sup'>{supplier.upper()}</td></tr>"
+            html_print += f"<tr><td colspan='5' class='sup'>{supplier.upper()} <span class='tag'>{depto_tag}</span></td></tr>"
             excel_row += 1
 
             sub_qty = 0
@@ -197,7 +219,8 @@ if st.session_state['suppliers_dict'] is not None:
             grand_total_qty += sub_qty
             grand_total_val += sub_val
 
-            prod_df = pd.DataFrame(products)
+            # Grid da Tela
+            prod_df = pd.DataFrame(products)[['Produto', 'Código Interno', 'Última Compra', 'Estoque', 'Total']]
             view_df = prod_df.copy()
             view_df['Total'] = view_df['Total'].map('R$ {:,.2f}'.format)
             st.dataframe(view_df, use_container_width=True, hide_index=True)
@@ -224,7 +247,6 @@ if st.session_state['suppliers_dict'] is not None:
 
     st.markdown(f'<div class="grand-total-box">TOTAL GERAL DOS FORNECEDORES<br>Estoque: {grand_total_qty} | R$ {grand_total_val:,.2f}</div>', unsafe_allow_html=True)
 
-    # Armazenando buffers finais na sessão
     st.session_state['excel_buffer'] = buffer_excel.getvalue()
     st.session_state['html_print'] = html_print
 
@@ -233,7 +255,7 @@ if st.session_state['suppliers_dict'] is not None:
     st.sidebar.download_button(
         label="💾 Exportar para Excel (.xlsx)",
         data=st.session_state['excel_buffer'],
-        file_name="Relatorio_Trocas_Formatado.xlsx",
+        file_name="Relatorio_Trocas_Unificado.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
     
