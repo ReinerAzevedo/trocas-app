@@ -5,7 +5,7 @@ from datetime import datetime
 
 # Configuração de página
 st.set_page_config(
-    page_title="Gerenciador de Trocas v2.7", 
+    page_title="Gerenciador de Trocas v2.8", 
     page_icon="🔄", 
     layout="wide"
 )
@@ -58,7 +58,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Cabeçalho de Versão
-versao_app = "v2.7"
+versao_app = "v2.8"
 if 'data_compilacao' not in st.session_state:
     st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
@@ -74,19 +74,6 @@ if 'selected_sups' not in st.session_state:
     st.session_state['selected_sups'] = set()
 if 'data_planilha_bruta' not in st.session_state:
     st.session_state['data_planilha_bruta'] = "Não identificada"
-
-# Botão de limpar painel
-if st.session_state['suppliers_dict'] is not None:
-    if st.sidebar.button("🗑️ Limpar Painel / Novo Upload", use_container_width=True):
-        # Remove todas as chaves dinamicas salvas dos checkboxes
-        for k in list(st.session_state.keys()):
-            if k.startswith("cb_"):
-                del st.session_state[k]
-        st.session_state['suppliers_dict'] = None
-        st.session_state['selected_sups'] = set()
-        st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-        st.session_state['data_planilha_bruta'] = "Não identificada"
-        st.rerun()
 
 # --- ÁREA DE UPLOAD ---
 if st.session_state['suppliers_dict'] is None:
@@ -143,7 +130,6 @@ if st.session_state['suppliers_dict'] is None:
                 st.session_state['suppliers_dict'] = dict(sorted(temp_dict.items()))
                 st.session_state['selected_sups'] = set(temp_dict.keys())
                 
-                # Força o estado visual de todas as chaves dos checkboxes como True no upload
                 for sup_name in temp_dict.keys():
                     st.session_state[f"cb_{sup_name}"] = True
                 
@@ -158,25 +144,21 @@ if st.session_state['suppliers_dict'] is None:
 if st.session_state['suppliers_dict'] is not None:
     suppliers_dict_full = st.session_state['suppliers_dict']
 
-    # 1. Filtro Superior por Botões (Mercearia / Perecíveis / Ambas)
-    st.markdown("### 🎯 Filtrar Departamento View:")
-    f_col1, f_col2, f_col3 = st.columns(3)
-    
-    if f_col1.button("🏢 MERCEARIA", use_container_width=True):
-        st.session_state['filtro_depto'] = "MERCEARIA"
-    if f_col2.button("🥩 PERECÍVEIS", use_container_width=True):
-        st.session_state['filtro_depto'] = "PERECÍVEIS"
-    if f_col3.button("🔄 AMBAS PLANILHAS", use_container_width=True):
-        st.session_state['filtro_depto'] = "Ambas"
+    # 1. BOTÃO DE LIMPAR NO TOPO DA BARRA LATERAL
+    if st.sidebar.button("🗑️ Limpar Painel / Novo Upload", use_container_width=True):
+        for k in list(st.session_state.keys()):
+            if k.startswith("cb_"):
+                del st.session_state[k]
+        st.session_state['suppliers_dict'] = None
+        st.session_state['selected_sups'] = set()
+        st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        st.session_state['data_planilha_bruta'] = "Não identificada"
+        st.rerun()
 
-    st.info(f"Visualizando: **{st.session_state['filtro_depto']}** | Data Referência da Planilha: **{st.session_state['data_planilha_bruta']}**")
-
-    # 2. BARRA LATERAL: BUSCA E CHECKBOXES SINCRONIZADOS
+    # 2. IDENTIFICAÇÃO DOS VISÍVEIS PELA BUSCA E FILTRO DE DEPARTAMENTO
     st.sidebar.markdown("### 📋 Selecionar Fornecedores")
-    
     busca = st.sidebar.text_input("🔍 Buscar fornecedor:", "", placeholder="Digite o nome...", key="txt_busca").strip().upper()
 
-    # Identifica fornecedores visíveis pela busca atual
     sups_visiveis_side = []
     for sup_name, items in suppliers_dict_full.items():
         depto = items[0]['Departamento']
@@ -184,7 +166,6 @@ if st.session_state['suppliers_dict'] is not None:
             if busca == "" or busca in sup_name:
                 sups_visiveis_side.append(sup_name)
 
-    # Callbacks corrigidos para sincronizar o visual dos checkboxes e o conjunto de seleções
     def marcar_visiveis():
         for s in sups_visiveis_side:
             st.session_state[f"cb_{s}"] = True
@@ -196,66 +177,18 @@ if st.session_state['suppliers_dict'] is not None:
             st.session_state['selected_sups'].discard(s)
 
     btn_col1, btn_col2 = st.sidebar.columns(2)
-    btn_col1.button("✅ Marcar Exibidos", on_click=marcar_visiveis, use_container_width=True)
+    btn_col1.button("✅ Marcar", on_click=marcar_visiveis, use_container_width=True)
     btn_col2.button("❌ Desmarcar", on_click=desmarcar_visiveis, use_container_width=True)
 
     st.sidebar.caption(f"Selecionados acumulados: **{len(st.session_state['selected_sups'])}** de {len(suppliers_dict_full)}")
-    st.sidebar.markdown("---")
 
-    # Renderiza os checkboxes associando a chave visual de forma direta
-    for sup_name in sups_visiveis_side:
-        depto = suppliers_dict_full[sup_name][0]['Departamento']
-        
-        # Garante inicialização da chave visual caso seja um fornecedor novo
-        if f"cb_{sup_name}" not in st.session_state:
-            st.session_state[f"cb_{sup_name}"] = (sup_name in st.session_state['selected_sups'])
-
-        def on_change_cb(name=sup_name):
-            if st.session_state[f"cb_{name}"]:
-                st.session_state['selected_sups'].add(name)
-            else:
-                st.session_state['selected_sups'].discard(name)
-
-        st.sidebar.checkbox(
-            f"{sup_name} ({depto[0]})", 
-            key=f"cb_{sup_name}",
-            on_change=on_change_cb
-        )
-
-    # Base filtrada real acumulada
+    # 3. BASE FILTRADA ACUMULADA REAL
     suppliers_filtered = {
         k: v for k, v in suppliers_dict_full.items() 
         if k in st.session_state['selected_sups'] and (st.session_state['filtro_depto'] == "Ambas" or v[0]['Departamento'] == st.session_state['filtro_depto'])
     }
 
-    # 3. Totais por Departamento
-    tot_merc_qty, tot_merc_val = 0, 0.0
-    tot_perec_qty, tot_perec_val = 0, 0.0
-
-    for s_name, products in suppliers_filtered.items():
-        for p in products:
-            if p['Departamento'] == "MERCEARIA":
-                tot_merc_qty += p['Estoque']
-                tot_merc_val += p['Total']
-            elif p['Departamento'] == "PERECÍVEIS":
-                tot_perec_qty += p['Estoque']
-                tot_perec_val += p['Total']
-
-    # Cartões de Resumo
-    c_tot1, c_tot2, c_tot3 = st.columns(3)
-    
-    if st.session_state['filtro_depto'] in ["AMBAS", "Ambas", "MERCEARIA"] and tot_merc_qty > 0:
-        c_tot1.metric("Total Mercearia", f"R$ {tot_merc_val:,.2f}", f"{tot_merc_qty} itens")
-        
-    if st.session_state['filtro_depto'] in ["AMBAS", "Ambas", "PERECÍVEIS"] and tot_perec_qty > 0:
-        c_tot2.metric("Total Perecíveis", f"R$ {tot_perec_val:,.2f}", f"{tot_perec_qty} itens")
-        
-    if st.session_state['filtro_depto'] == "Ambas" and (tot_merc_qty > 0 and tot_perec_qty > 0):
-        c_tot3.metric("TOTAL GERAL CONSOLIDADO", f"R$ {(tot_merc_val + tot_perec_val):,.2f}", f"{tot_merc_qty + tot_perec_qty} itens")
-
-    st.markdown("---")
-
-    # 4. GERAÇÃO DOS ARQUIVOS (EXCEL E HTML)
+    # 4. GERAÇÃO DOS ARQUIVOS (EXCEL E HTML) PARA OS BOTÕES DE AÇÃO
     buffer_excel = io.BytesIO()
     grand_total_qty = 0
     grand_total_val = 0.0
@@ -308,8 +241,6 @@ if st.session_state['suppliers_dict'] is not None:
 
         for supplier, products in suppliers_filtered.items():
             depto_tag = products[0]['Departamento']
-            st.markdown(f'<div class="supplier-header">{supplier.upper()} <span class="dept-tag">{depto_tag}</span></div>', unsafe_allow_html=True)
-            
             ws.write(excel_row, 0, supplier.upper(), fmt_supplier)
             html_print += f"<tr><td colspan='5' class='sup'>{supplier.upper()} <span class='tag'>{depto_tag}</span></td></tr>"
             excel_row += 1
@@ -333,12 +264,6 @@ if st.session_state['suppliers_dict'] is not None:
             grand_total_qty += sub_qty
             grand_total_val += sub_val
 
-            prod_df = pd.DataFrame(products)[['Produto', 'Código Interno', 'Última Compra', 'Estoque', 'Total']]
-            view_df = prod_df.copy()
-            view_df['Total'] = view_df['Total'].map('R$ {:,.2f}'.format)
-            st.dataframe(view_df, use_container_width=True, hide_index=True)
-            st.markdown(f'<div class="total-supplier">TOTAL {supplier.upper()}: {sub_qty} itens — R$ {sub_val:,.2f}</div>', unsafe_allow_html=True)
-
             ws.write(excel_row, 0, f"TOTAL {supplier.upper()}", fmt_subtotal)
             ws.write(excel_row, 3, sub_qty, fmt_sub_qty)
             ws.write(excel_row, 4, sub_val, fmt_sub_val)
@@ -358,10 +283,7 @@ if st.session_state['suppliers_dict'] is not None:
         ws.set_column(0, 0, 45)
         ws.set_column(1, 4, 15)
 
-    st.markdown(f'<div class="grand-total-box">TOTAL GERAL DOS SELECIONADOS<br>Estoque: {grand_total_qty} | R$ {grand_total_val:,.2f}</div>', unsafe_allow_html=True)
-
-    # Menu Lateral de Ações
-    st.sidebar.markdown("---")
+    # 5. BOTÕES DE AÇÃO NO TOPO DA BARRA LATERAL (LOGO ABAIXO DOS BOTÕES DE SELEÇÃO)
     st.sidebar.markdown("### 📥 Ações")
     st.sidebar.download_button(
         label="💾 Exportar Seleção para Excel",
@@ -378,3 +300,79 @@ if st.session_state['suppliers_dict'] is not None:
         mime="text/html",
         use_container_width=True
     )
+
+    st.sidebar.markdown("---")
+
+    # 6. RENDERIZAÇÃO DOS CHECKBOXES ABAIXO DOS BOTÕES DE AÇÃO
+    for sup_name in sups_visiveis_side:
+        depto = suppliers_dict_full[sup_name][0]['Departamento']
+        
+        if f"cb_{sup_name}" not in st.session_state:
+            st.session_state[f"cb_{sup_name}"] = (sup_name in st.session_state['selected_sups'])
+
+        def on_change_cb(name=sup_name):
+            if st.session_state[f"cb_{name}"]:
+                st.session_state['selected_sups'].add(name)
+            else:
+                st.session_state['selected_sups'].discard(name)
+
+        st.sidebar.checkbox(
+            f"{sup_name} ({depto[0]})", 
+            key=f"cb_{sup_name}",
+            on_change=on_change_cb
+        )
+
+    # 7. RENDERIZAÇÃO DO PAINEL PRINCIPAL (CENTRAL)
+    st.markdown("### 🎯 Filtrar Departamento View:")
+    f_col1, f_col2, f_col3 = st.columns(3)
+    
+    if f_col1.button("🏢 MERCEARIA", use_container_width=True):
+        st.session_state['filtro_depto'] = "MERCEARIA"
+    if f_col2.button("🥩 PERECÍVEIS", use_container_width=True):
+        st.session_state['filtro_depto'] = "PERECÍVEIS"
+    if f_col3.button("🔄 AMBAS PLANILHAS", use_container_width=True):
+        st.session_state['filtro_depto'] = "Ambas"
+
+    st.info(f"Visualizando: **{st.session_state['filtro_depto']}** | Data Referência da Planilha: **{st.session_state['data_planilha_bruta']}**")
+
+    # Totais por Departamento para os Cartões
+    tot_merc_qty, tot_merc_val = 0, 0.0
+    tot_perec_qty, tot_perec_val = 0, 0.0
+
+    for s_name, products in suppliers_filtered.items():
+        for p in products:
+            if p['Departamento'] == "MERCEARIA":
+                tot_merc_qty += p['Estoque']
+                tot_merc_val += p['Total']
+            elif p['Departamento'] == "PERECÍVEIS":
+                tot_perec_qty += p['Estoque']
+                tot_perec_val += p['Total']
+
+    c_tot1, c_tot2, c_tot3 = st.columns(3)
+    
+    if st.session_state['filtro_depto'] in ["AMBAS", "Ambas", "MERCEARIA"] and tot_merc_qty > 0:
+        c_tot1.metric("Total Mercearia", f"R$ {tot_merc_val:,.2f}", f"{tot_merc_qty} itens")
+        
+    if st.session_state['filtro_depto'] in ["AMBAS", "Ambas", "PERECÍVEIS"] and tot_perec_qty > 0:
+        c_tot2.metric("Total Perecíveis", f"R$ {tot_perec_val:,.2f}", f"{tot_perec_qty} itens")
+        
+    if st.session_state['filtro_depto'] == "Ambas" and (tot_merc_qty > 0 and tot_perec_qty > 0):
+        c_tot3.metric("TOTAL GERAL CONSOLIDADO", f"R$ {(tot_merc_val + tot_perec_val):,.2f}", f"{tot_merc_qty + tot_perec_qty} itens")
+
+    st.markdown("---")
+
+    # Tabelas dos fornecedores no painel central
+    for supplier, products in suppliers_filtered.items():
+        depto_tag = products[0]['Departamento']
+        st.markdown(f'<div class="supplier-header">{supplier.upper()} <span class="dept-tag">{depto_tag}</span></div>', unsafe_allow_html=True)
+
+        sub_qty = sum(p['Estoque'] for p in products)
+        sub_val = sum(p['Total'] for p in products)
+
+        prod_df = pd.DataFrame(products)[['Produto', 'Código Interno', 'Última Compra', 'Estoque', 'Total']]
+        view_df = prod_df.copy()
+        view_df['Total'] = view_df['Total'].map('R$ {:,.2f}'.format)
+        st.dataframe(view_df, use_container_width=True, hide_index=True)
+        st.markdown(f'<div class="total-supplier">TOTAL {supplier.upper()}: {sub_qty} itens — R$ {sub_val:,.2f}</div>', unsafe_allow_html=True)
+
+    st.markdown(f'<div class="grand-total-box">TOTAL GERAL DOS SELECIONADOS<br>Estoque: {grand_total_qty} | R$ {grand_total_val:,.2f}</div>', unsafe_allow_html=True)
