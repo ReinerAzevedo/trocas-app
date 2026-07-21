@@ -3,103 +3,94 @@ import pandas as pd
 import io
 from datetime import datetime
 
-# Configuração estável de layout
+# Configuração de página
 st.set_page_config(
-    page_title="Gerenciador de Trocas v2.2", 
+    page_title="Gerenciador de Trocas v2.3", 
     page_icon="🔄", 
-    layout="centered"
+    layout="wide"
 )
 
-# Estilização CSS para a visualização na tela do celular/PC
+# Estilização CSS
 st.markdown("""
     <style>
     .version-header {
         font-size: 11px !important;
         color: #777777 !important;
         text-align: right;
-        margin-bottom: 20px;
+        margin-bottom: 10px;
     }
     .supplier-header {
         color: #FF0000 !important;
         font-weight: bold !important;
-        font-size: 20px !important;
-        margin-top: 25px !important;
+        font-size: 18px !important;
+        margin-top: 20px !important;
         margin-bottom: 5px !important;
     }
     .total-supplier {
         color: #FF0000 !important;
         font-weight: bold !important;
-        font-size: 16px !important;
+        font-size: 15px !important;
         margin-top: 5px !important;
-        margin-bottom: 25px !important;
+        margin-bottom: 20px !important;
         border-bottom: 2px solid #FF0000;
-        padding-bottom: 10px;
+        padding-bottom: 8px;
     }
     .grand-total-box {
         background-color: #FF0000 !important;
         color: #FFFFFF !important;
         font-weight: bold !important;
-        font-size: 22px !important;
-        padding: 15px !important;
+        font-size: 20px !important;
+        padding: 12px !important;
         border-radius: 5px !important;
         text-align: center !important;
-        margin-top: 40px !important;
+        margin-top: 20px !important;
     }
     .dept-tag {
-        font-size: 12px !important;
+        font-size: 11px !important;
         font-weight: bold !important;
         color: #555555 !important;
         background-color: #eeeeee !important;
-        padding: 3px 8px !important;
+        padding: 2px 6px !important;
         border-radius: 3px !important;
-        margin-left: 10px !important;
-        display: inline-block;
+        margin-left: 8px !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# --- CABEÇALHO COM VERSÃO E DATA/HORA ---
-versao_app = "v2.2"
+# Cabecalho
+versao_app = "v2.3"
 if 'data_compilacao' not in st.session_state:
     st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
 st.markdown(f'<div class="version-header">Versão: {versao_app} | Painel Ativo desde: {st.session_state["data_compilacao"]}</div>', unsafe_allow_html=True)
-
 st.title("🔄 Conversor de Planilhas de Trocas")
-st.write("Faça o upload das planilhas brutas de Mercearia e/ou Perecíveis para unificar.")
 
-# --- MEMÓRIA DO APP (SESSION STATE) ---
+# Inicialização do Session State
 if 'suppliers_dict' not in st.session_state:
     st.session_state['suppliers_dict'] = None
-if 'excel_buffer' not in st.session_state:
-    st.session_state['excel_buffer'] = None
-if 'html_print' not in st.session_state:
-    st.session_state['html_print'] = ""
+if 'filtro_depto' not in st.session_state:
+    st.session_state['filtro_depto'] = "Ambas"
 
-# Botão de limpar na barra lateral
+# Botão de limpar
 if st.session_state['suppliers_dict'] is not None:
-    if st.sidebar.button("🗑️ Limpar Painel / Novo Upload"):
+    if st.sidebar.button("🗑️ Limpar Painel / Novo Upload", use_container_width=True):
         st.session_state['suppliers_dict'] = None
-        st.session_state['excel_buffer'] = None
-        st.session_state['html_print'] = ""
         st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         st.rerun()
 
-# Só mostra a área de upload se a memória estiver vazia
+# --- ÁREA DE UPLOAD ---
 if st.session_state['suppliers_dict'] is None:
+    st.write("Faça o upload das planilhas brutas de Mercearia e/ou Perecíveis:")
     col1, col2 = st.columns(2)
-    
     with col1:
         file_mercearia = st.file_uploader("Planilha MERCEARIA (.xlsx)", type=["xlsx"], key="merc")
     with col2:
         file_pereciveis = st.file_uploader("Planilha PERECÍVEIS (.xlsx)", type=["xlsx"], key="perec")
 
-    # BOTÃO PROCESSAR INTELIGENTE QUE VOCÊ SUGERIU
     if file_mercearia or file_pereciveis:
         if st.button("🚀 Processar Planilhas Anexadas", use_container_width=True):
             temp_dict = {}
             
-            # Função interna para ler cada tipo de planilha e marcar o departamento
             def ler_planilha(uploaded_file, depto_name):
                 df = pd.read_excel(uploaded_file, sheet_name=0)
                 df_clean = df.iloc[16:].copy()
@@ -126,32 +117,86 @@ if st.session_state['suppliers_dict'] is None:
                             'Departamento': depto_name
                         })
 
-            if file_mercearia:
-                ler_planilha(file_mercearia, "MERCEARIA")
-            if file_pereciveis:
-                ler_planilha(file_pereciveis, "PERECÍVEIS")
+            if file_mercearia: ler_planilha(file_mercearia, "MERCEARIA")
+            if file_pereciveis: ler_planilha(file_pereciveis, "PERECÍVEIS")
 
             if temp_dict:
-                # Ordena os fornecedores em ordem alfabética para ficar organizado
                 st.session_state['suppliers_dict'] = dict(sorted(temp_dict.items()))
                 st.rerun()
 
-# Se os dados estão na memória, renderiza o layout na tela e prepara os arquivos
+# --- RENDERIZAÇÃO E FILTROS ---
 if st.session_state['suppliers_dict'] is not None:
-    suppliers_dict = st.session_state['suppliers_dict']
+    suppliers_dict_full = st.session_state['suppliers_dict']
+
+    # 1. Filtro Superior por Botões (Mercearia / Perecíveis / Ambas)
+    st.markdown("### 🎯 Filtrar Departamento View:")
+    f_col1, f_col2, f_col3 = st.columns(3)
+    
+    if f_col1.button("🏢 MERCEARIA", use_container_width=True):
+        st.session_state['filtro_depto'] = "MERCEARIA"
+    if f_col2.button("🥩 PERECÍVEIS", use_container_width=True):
+        st.session_state['filtro_depto'] = "PERECÍVEIS"
+    if f_col3.button("🔄 AMBAS PLANILHAS", use_container_width=True):
+        st.session_state['filtro_depto'] = "Ambas"
+
+    st.info(f"Visualizando: **{st.session_state['filtro_depto']}**")
+
+    # 2. Checklist na Barra Lateral (Para selecionar fornecedores)
+    st.sidebar.markdown("### 📋 Selecionar Fornecedores")
+    selected_suppliers = []
+    
+    for sup_name, items in suppliers_dict_full.items():
+        depto = items[0]['Departamento']
+        # Só exibe na lista lateral se bater com o filtro selecionado
+        if st.session_state['filtro_depto'] == "Ambas" or depto == st.session_state['filtro_depto']:
+            if st.sidebar.checkbox(f"{sup_name} ({depto[0]})", value=True, key=f"chk_{sup_name}"):
+                selected_suppliers.append(sup_name)
+
+    # Filtragem Final da Base
+    suppliers_filtered = {
+        k: v for k, v in suppliers_dict_full.items() 
+        if k in selected_suppliers and (st.session_state['filtro_depto'] == "Ambas" or v[0]['Departamento'] == st.session_state['filtro_depto'])
+    }
+
+    # 3. Cálculo dos Totais por Departamento
+    tot_merc_qty, tot_merc_val = 0, 0.0
+    tot_perec_qty, tot_perec_val = 0, 0.0
+
+    for s_name, products in suppliers_filtered.items():
+        for p in products:
+            if p['Departamento'] == "MERCEARIA":
+                tot_merc_qty += p['Estoque']
+                tot_merc_val += p['Total']
+            elif p['Departamento'] == "PERECÍVEIS":
+                tot_perec_qty += p['Estoque']
+                tot_perec_val += p['Total']
+
+    # Exibição Dinâmica dos Cartões de Totalização no Topo
+    c_tot1, c_tot2, c_tot3 = st.columns(3)
+    
+    if st.session_state['filtro_depto'] in ["AMBAS", "Ambas", "MERCEARIA"] and tot_merc_qty > 0:
+        c_tot1.metric("Total Mercearia", f"R$ {tot_merc_val:,.2f}", f"{tot_merc_qty} itens")
+        
+    if st.session_state['filtro_depto'] in ["AMBAS", "Ambas", "PERECÍVEIS"] and tot_perec_qty > 0:
+        c_tot2.metric("Total Perecíveis", f"R$ {tot_perec_val:,.2f}", f"{tot_perec_qty} itens")
+        
+    if st.session_state['filtro_depto'] == "Ambas" and (tot_merc_qty > 0 and tot_perec_qty > 0):
+        c_tot3.metric("TOTAL GERAL CONSOLIDADO", f"R$ {(tot_merc_val + tot_perec_val):,.2f}", f"{tot_merc_qty + tot_perec_qty} itens")
+
+    st.markdown("---")
+
+    # 4. Geração dos Arquivos (Excel e HTML de Impressão) baseados APENAS nos selecionados
+    buffer_excel = io.BytesIO()
     grand_total_qty = 0
     grand_total_val = 0.0
 
-    buffer_excel = io.BytesIO()
-    
     with pd.ExcelWriter(buffer_excel, engine='xlsxwriter') as writer:
         wb = writer.book
         ws = wb.add_worksheet('Trocas Formatado')
         ws.hide_gridlines(2)
 
-        # Formatos do Excel
         fmt_header = wb.add_format({'bold': True, 'font_color': 'white', 'bg_color': 'black', 'font_name': 'Arial', 'font_size': 11})
-        fmt_header_center = wb.add_format({'bold': True, 'font_color': 'white', 'bg_color': 'black', 'font_name': 'Arial', 'font_size': 11, 'align': 'center'})
+        fmt_header_c = wb.add_format({'bold': True, 'font_color': 'white', 'bg_color': 'black', 'font_name': 'Arial', 'font_size': 11, 'align': 'center'})
         fmt_supplier = wb.add_format({'bold': True, 'font_color': '#FF0000', 'font_name': 'Arial', 'font_size': 11})
         fmt_product = wb.add_format({'font_name': 'Arial', 'font_size': 10})
         fmt_center = wb.add_format({'font_name': 'Arial', 'font_size': 10, 'align': 'center'})
@@ -165,10 +210,10 @@ if st.session_state['suppliers_dict'] is not None:
         fmt_grand_val = wb.add_format({'bold': True, 'font_color': 'white', 'bg_color': '#FF0000', 'font_name': 'Arial', 'font_size': 12, 'num_format': 'R$ #,##0.00'})
 
         ws.write(0, 0, "Fornecedor / Produto", fmt_header)
-        ws.write(0, 1, "Código Interno", fmt_header_center)
-        ws.write(0, 2, "Última Compra", fmt_header_center)
-        ws.write(0, 3, "Estoque", fmt_header_center)
-        ws.write(0, 4, "Total", fmt_header_center)
+        ws.write(0, 1, "Código Interno", fmt_header_c)
+        ws.write(0, 2, "Última Compra", fmt_header_c)
+        ws.write(0, 3, "Estoque", fmt_header_c)
+        ws.write(0, 4, "Total", fmt_header_c)
 
         excel_row = 1
 
@@ -187,12 +232,11 @@ if st.session_state['suppliers_dict'] is not None:
             .tag {{ font-size: 9px; background: #eee; color: #333; padding: 2px 5px; margin-left: 5px; border-radius: 3px; font-weight: normal; }}
         </style></head><body onload='window.print()'>
         <div class="v-info">Versão: {versao_app} | Gerado em: {st.session_state["data_compilacao"]}</div>
-        <h1>Relatório Unificado de Estoque de Trocas</h1>
-        <h3><b>Loja:</b> LU 10-MONGAGUA</h3>
+        <h1>Relatório Selecionado de Estoque de Trocas</h1>
+        <h3><b>Filtro:</b> {st.session_state['filtro_depto']} | <b>Loja:</b> LU 10-MONGAGUA</h3>
         <table><thead><tr><th>Fornecedor / Produto</th><th>Código Interno</th><th>Última Compra</th><th class='center'>Estoque</th><th class='right'>Total</th></tr></thead><tbody>"""
 
-        for supplier, products in suppliers_dict.items():
-            # Exibição na tela com Tag do Departamento
+        for supplier, products in suppliers_filtered.items():
             depto_tag = products[0]['Departamento']
             st.markdown(f'<div class="supplier-header">{supplier.upper()} <span class="dept-tag">{depto_tag}</span></div>', unsafe_allow_html=True)
             
@@ -219,7 +263,6 @@ if st.session_state['suppliers_dict'] is not None:
             grand_total_qty += sub_qty
             grand_total_val += sub_val
 
-            # Grid da Tela
             prod_df = pd.DataFrame(products)[['Produto', 'Código Interno', 'Última Compra', 'Estoque', 'Total']]
             view_df = prod_df.copy()
             view_df['Total'] = view_df['Total'].map('R$ {:,.2f}'.format)
@@ -233,35 +276,35 @@ if st.session_state['suppliers_dict'] is not None:
             html_print += f"<tr class='sub'><td>TOTAL {supplier.upper()}</td><td></td><td></td><td class='center'>{sub_qty}</td><td class='right'>R$ {sub_val:,.2f}</td></tr>"
             excel_row += 2
 
-        ws.write(excel_row, 0, "TOTAL GERAL DOS FORNECEDORES", fmt_grand)
+        ws.write(excel_row, 0, "TOTAL GERAL DOS SELECIONADOS", fmt_grand)
         ws.write(excel_row, 1, "", fmt_grand)
         ws.write(excel_row, 2, "", fmt_grand)
         ws.write(excel_row, 3, grand_total_qty, fmt_grand_qty)
         ws.write(excel_row, 4, grand_total_val, fmt_grand_val)
         
-        html_print += f"<tr class='grand'><td style='padding:8px;'>TOTAL GERAL DOS FORNECEDORES</td><td></td><td></td><td class='center'>{grand_total_qty}</td><td class='right'>R$ {grand_total_val:,.2f}</td></tr>"
+        html_print += f"<tr class='grand'><td style='padding:8px;'>TOTAL GERAL DOS SELECIONADOS</td><td></td><td></td><td class='center'>{grand_total_qty}</td><td class='right'>R$ {grand_total_val:,.2f}</td></tr>"
         html_print += "</tbody></table></body></html>"
 
         ws.set_column(0, 0, 45)
         ws.set_column(1, 4, 15)
 
-    st.markdown(f'<div class="grand-total-box">TOTAL GERAL DOS FORNECEDORES<br>Estoque: {grand_total_qty} | R$ {grand_total_val:,.2f}</div>', unsafe_allow_html=True)
-
-    st.session_state['excel_buffer'] = buffer_excel.getvalue()
-    st.session_state['html_print'] = html_print
+    st.markdown(f'<div class="grand-total-box">TOTAL GERAL DOS SELECIONADOS<br>Estoque: {grand_total_qty} | R$ {grand_total_val:,.2f}</div>', unsafe_allow_html=True)
 
     # Menu Lateral de Ações
+    st.sidebar.markdown("---")
     st.sidebar.markdown("### 📥 Ações")
     st.sidebar.download_button(
-        label="💾 Exportar para Excel (.xlsx)",
-        data=st.session_state['excel_buffer'],
-        file_name="Relatorio_Trocas_Unificado.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        label="💾 Exportar Seleção para Excel",
+        data=buffer_excel.getvalue(),
+        file_name="Relatorio_Trocas_Filtrado.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
     )
     
     st.sidebar.download_button(
-        label="🖨️ Imprimir / Gerar PDF",
-        data=st.session_state['html_print'],
-        file_name="Imprimir_Relatorio_Trocas.html",
-        mime="text/html"
+        label="🖨️ Imprimir Seleção (PDF)",
+        data=html_print,
+        file_name="Imprimir_Relatorio_Filtrado.html",
+        mime="text/html",
+        use_container_width=True
     )
