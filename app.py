@@ -1,11 +1,12 @@
 import streamlit as st
 import pandas as pd
 import io
+import re
 from datetime import datetime
 
 # Configuração de página
 st.set_page_config(
-    page_title="Gerenciador de Trocas v3.0", 
+    page_title="Gerenciador de Trocas v3.1", 
     page_icon="🔄", 
     layout="wide"
 )
@@ -54,7 +55,6 @@ st.markdown("""
         border-radius: 3px !important;
         margin-left: 5px !important;
     }
-    /* Compactação para telas de celular */
     @media (max-width: 600px) {
         .stButton>button { width: 100% !important; padding: 4px !important; }
         .supplier-header { font-size: 15px !important; }
@@ -64,7 +64,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Cabeçalho de Versão
-versao_app = "v3.0"
+versao_app = "v3.1"
 if 'data_compilacao' not in st.session_state:
     st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
@@ -194,15 +194,28 @@ if st.session_state['suppliers_dict'] is not None:
         if k in st.session_state['selected_sups'] and (st.session_state['filtro_depto'] == "Ambas" or v[0]['Departamento'] == st.session_state['filtro_depto'])
     }
 
-    # Definição do título dinâmico com base no filtro atual
-    if st.session_state['filtro_depto'] == "MERCEARIA":
-        titulo_relatorio = "Relatório de Trocas - MERCEARIA"
-    elif st.session_state['filtro_depto'] == "PERECÍVEIS":
-        titulo_relatorio = "Relatório de Trocas - PERECÍVEIS"
-    else:
-        titulo_relatorio = "Relatório de Trocas - MERCEARIA / PERECÍVEIS"
+    # IDENTIFICAÇÃO REAL DOS DEPARTAMENTOS PRESENTES NOS SELECCIONADOS (CORREÇÃO DO TÍTULO)
+    deptos_presentes = set()
+    for s_name, products in suppliers_filtered.items():
+        if products:
+            deptos_presentes.add(products[0]['Departamento'])
 
-    # 4. GERAÇÃO DOS ARQUIVOS (EXCEL E HTML COMPACTO E RESPONSIVO)
+    if len(deptos_presentes) == 1:
+        depto_unico = list(deptos_presentes)[0]
+        titulo_relatorio = f"Relatório de Trocas - {depto_unico}"
+        str_segmento_arquivo = "Mercearia" if depto_unico == "MERCEARIA" else "Pereciveis"
+    elif len(deptos_presentes) > 1:
+        titulo_relatorio = "Relatório de Trocas - MERCEARIA / PERECÍVEIS"
+        str_segmento_arquivo = "Mercearia-Pereciveis"
+    else:
+        titulo_relatorio = "Relatório de Trocas"
+        str_segmento_arquivo = "Vazio"
+
+    # MONTAGEM DA DATA E HORA PARA O NOME DO ARQUIVO (Ex: 20072026-23-22-Trocas-Mercearia)
+    data_hora_prefixo = datetime.now().strftime("%d%m%Y-%H-%M")
+    nome_arquivo_base = f"{data_hora_prefixo}-Trocas-{str_segmento_arquivo}"
+
+    # 4. GERAÇÃO DOS ARQUIVOS (EXCEL E HTML)
     buffer_excel = io.BytesIO()
     grand_total_qty = 0
     grand_total_val = 0.0
@@ -233,8 +246,6 @@ if st.session_state['suppliers_dict'] is not None:
         ws.write(0, 4, "Total", fmt_header_c)
 
         excel_row = 1
-
-        # HTML Otimizado, sem autorun de impressão e com cabeçalho de usuário
         data_geracao_agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         
         html_print = f"""<html><head><meta charset='utf-8'><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>
@@ -247,7 +258,7 @@ if st.session_state['suppliers_dict'] is not None:
             td {{ padding: 4px 5px; font-size: 10px; border: 1px solid #ccc; }}
             .sup {{ color: red; font-weight: bold; font-size: 12px; padding-top: 10px; border: none; }}
             .sub {{ color: red; font-weight: bold; font-size: 11px; border-bottom: 2px solid red; }}
-            .grand {{ background: red; color: white; font-weight: bold; font-size: 12px; }}
+            .grand {{ background: red; color: white; font-weight: bold; font-size: 13px; }}
             .center {{ text-align: center; }} .right {{ text-align: right; }}
             .tag {{ font-size: 8px; background: #eee; color: #333; padding: 1px 4px; margin-left: 4px; border-radius: 2px; font-weight: normal; }}
             .no-print {{ text-align: center; margin-bottom: 12px; }}
@@ -309,12 +320,12 @@ if st.session_state['suppliers_dict'] is not None:
         ws.set_column(0, 0, 45)
         ws.set_column(1, 4, 15)
 
-    # 5. BOTÕES DE AÇÃO NO TOPO DA BARRA LATERAL
+    # 5. BOTÕES DE AÇÃO COM NOMES DE ARQUIVO DINÂMICOS
     st.sidebar.markdown("### 📥 Ações")
     st.sidebar.download_button(
         label="💾 Exportar Seleção para Excel",
         data=buffer_excel.getvalue(),
-        file_name="Relatorio_Trocas_Filtrado.xlsx",
+        file_name=f"{nome_arquivo_base}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True
     )
@@ -322,7 +333,7 @@ if st.session_state['suppliers_dict'] is not None:
     st.sidebar.download_button(
         label="🌐 Baixar Relatório HTML (WhatsApp)",
         data=html_print,
-        file_name="Relatorio_Trocas_Formatado.html",
+        file_name=f"{nome_arquivo_base}.html",
         mime="text/html",
         use_container_width=True
     )
