@@ -5,7 +5,7 @@ from datetime import datetime
 
 # Configuração de página
 st.set_page_config(
-    page_title="Gerenciador de Trocas v2.3", 
+    page_title="Gerenciador de Trocas v2.4", 
     page_icon="🔄", 
     layout="wide"
 )
@@ -57,8 +57,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Cabecalho
-versao_app = "v2.3"
+# Cabeçalho de Versão
+versao_app = "v2.4"
 if 'data_compilacao' not in st.session_state:
     st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
@@ -70,12 +70,18 @@ if 'suppliers_dict' not in st.session_state:
     st.session_state['suppliers_dict'] = None
 if 'filtro_depto' not in st.session_state:
     st.session_state['filtro_depto'] = "Ambas"
+if 'selected_sups' not in st.session_state:
+    st.session_state['selected_sups'] = set()
+if 'data_planilha_bruta' not in st.session_state:
+    st.session_state['data_planilha_bruta'] = "Não identificada"
 
-# Botão de limpar
+# Botão de limpar painel
 if st.session_state['suppliers_dict'] is not None:
     if st.sidebar.button("🗑️ Limpar Painel / Novo Upload", use_container_width=True):
         st.session_state['suppliers_dict'] = None
+        st.session_state['selected_sups'] = set()
         st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        st.session_state['data_planilha_bruta'] = "Não identificada"
         st.rerun()
 
 # --- ÁREA DE UPLOAD ---
@@ -90,9 +96,20 @@ if st.session_state['suppliers_dict'] is None:
     if file_mercearia or file_pereciveis:
         if st.button("🚀 Processar Planilhas Anexadas", use_container_width=True):
             temp_dict = {}
+            datas_encontradas = []
             
             def ler_planilha(uploaded_file, depto_name):
                 df = pd.read_excel(uploaded_file, sheet_name=0)
+                
+                # Tenta capturar a data de emissão/geração no cabeçalho bruto (ex: linhas iniciais)
+                try:
+                    for r in range(min(15, len(df))):
+                        linha_str = " ".join([str(val) for val in df.iloc[r].values if pd.notna(val)])
+                        if "Data" in linha_str or "Emissão" in linha_str or "Periodo" in linha_str:
+                            datas_encontradas.append(linha_str)
+                except:
+                    pass
+
                 df_clean = df.iloc[16:].copy()
                 df_clean.columns = df_clean.iloc[0]
                 df_clean = df_clean.iloc[1:].reset_index(drop=True)
@@ -122,6 +139,15 @@ if st.session_state['suppliers_dict'] is None:
 
             if temp_dict:
                 st.session_state['suppliers_dict'] = dict(sorted(temp_dict.items()))
+                # Seleciona todos os fornecedores por padrão ao carregar
+                st.session_state['selected_sups'] = set(temp_dict.keys())
+                
+                # Formata a data extraída ou usa a data atual se não encontrar rótulo
+                if datas_encontradas:
+                    st.session_state['data_planilha_bruta'] = datas_encontradas[0]
+                else:
+                    st.session_state['data_planilha_bruta'] = datetime.now().strftime("%d/%m/%Y")
+                    
                 st.rerun()
 
 # --- RENDERIZAÇÃO E FILTROS ---
@@ -139,26 +165,50 @@ if st.session_state['suppliers_dict'] is not None:
     if f_col3.button("🔄 AMBAS PLANILHAS", use_container_width=True):
         st.session_state['filtro_depto'] = "Ambas"
 
-    st.info(f"Visualizando: **{st.session_state['filtro_depto']}**")
+    st.info(f"Visualizando: **{st.session_state['filtro_depto']}** | Data Referência da Planilha: **{st.session_state['data_planilha_bruta']}**")
 
-    # 2. Checklist na Barra Lateral (Para selecionar fornecedores)
+    # 2. SELEÇÃO E BUSCA NA BARRA LATERAL
     st.sidebar.markdown("### 📋 Selecionar Fornecedores")
-    selected_suppliers = []
     
+    # Campo de busca para filtrar fornecedores
+    busca = st.sidebar.text_input("🔍 Buscar fornecedor:", "", placeholder="Digite o nome...").strip().upper()
+
+    # Filtra a lista visível no menu lateral
+    sups_visiveis_side = []
     for sup_name, items in suppliers_dict_full.items():
         depto = items[0]['Departamento']
-        # Só exibe na lista lateral se bater com o filtro selecionado
         if st.session_state['filtro_depto'] == "Ambas" or depto == st.session_state['filtro_depto']:
-            if st.sidebar.checkbox(f"{sup_name} ({depto[0]})", value=True, key=f"chk_{sup_name}"):
-                selected_suppliers.append(sup_name)
+            if busca == "" or busca in sup_name:
+                sups_visiveis_side.append(sup_name)
 
-    # Filtragem Final da Base
+    # Botões de Selecionar Todos / Desmarcar Todos
+    btn_col1, btn_col2 = st.sidebar.columns(2)
+    if btn_col1.button("✅ Marcar Todos", use_container_width=True):
+        st.session_state['selected_sups'].update(sups_visiveis_side)
+        st.rerun()
+    if btn_col2.button("❌ Desmarcar", use_container_width=True):
+        st.session_state['selected_sups'].difference_update(sups_visiveis_side)
+        st.rerun()
+
+    st.sidebar.markdown("---")
+
+    # Checkboxes individuais
+    for sup_name in sups_visiveis_side:
+        depto = suppliers_dict_full[sup_name][0]['Departamento']
+        is_checked = sup_name in st.session_state['selected_sups']
+        
+        if st.sidebar.checkbox(f"{sup_name} ({depto[0]})", value=is_checked, key=f"chk_{sup_name}"):
+            st.session_state['selected_sups'].add(sup_name)
+        else:
+            st.session_state['selected_sups'].discard(sup_name)
+
+    # Base final filtrada com base nos checkboxes marcados
     suppliers_filtered = {
         k: v for k, v in suppliers_dict_full.items() 
-        if k in selected_suppliers and (st.session_state['filtro_depto'] == "Ambas" or v[0]['Departamento'] == st.session_state['filtro_depto'])
+        if k in st.session_state['selected_sups'] and (st.session_state['filtro_depto'] == "Ambas" or v[0]['Departamento'] == st.session_state['filtro_depto'])
     }
 
-    # 3. Cálculo dos Totais por Departamento
+    # 3. Totais por Departamento
     tot_merc_qty, tot_merc_val = 0, 0.0
     tot_perec_qty, tot_perec_val = 0, 0.0
 
@@ -171,7 +221,7 @@ if st.session_state['suppliers_dict'] is not None:
                 tot_perec_qty += p['Estoque']
                 tot_perec_val += p['Total']
 
-    # Exibição Dinâmica dos Cartões de Totalização no Topo
+    # Cartões de Resumo
     c_tot1, c_tot2, c_tot3 = st.columns(3)
     
     if st.session_state['filtro_depto'] in ["AMBAS", "Ambas", "MERCEARIA"] and tot_merc_qty > 0:
@@ -185,7 +235,7 @@ if st.session_state['suppliers_dict'] is not None:
 
     st.markdown("---")
 
-    # 4. Geração dos Arquivos (Excel e HTML de Impressão) baseados APENAS nos selecionados
+    # 4. GERAÇÃO DOS ARQUIVOS (EXCEL E HTML)
     buffer_excel = io.BytesIO()
     grand_total_qty = 0
     grand_total_val = 0.0
@@ -231,9 +281,9 @@ if st.session_state['suppliers_dict'] is not None:
             .center {{ text-align: center; }} .right {{ text-align: right; }}
             .tag {{ font-size: 9px; background: #eee; color: #333; padding: 2px 5px; margin-left: 5px; border-radius: 3px; font-weight: normal; }}
         </style></head><body onload='window.print()'>
-        <div class="v-info">Versão: {versao_app} | Gerado em: {st.session_state["data_compilacao"]}</div>
+        <div class="v-info">Versão: {versao_app} | Processado em: {st.session_state["data_compilacao"]}</div>
         <h1>Relatório Selecionado de Estoque de Trocas</h1>
-        <h3><b>Filtro:</b> {st.session_state['filtro_depto']} | <b>Loja:</b> LU 10-MONGAGUA</h3>
+        <h3><b>Data da Planilha Bruta:</b> {st.session_state['data_planilha_bruta']} | <b>Filtro:</b> {st.session_state['filtro_depto']} | <b>Loja:</b> LU 10-MONGAGUA</h3>
         <table><thead><tr><th>Fornecedor / Produto</th><th>Código Interno</th><th>Última Compra</th><th class='center'>Estoque</th><th class='right'>Total</th></tr></thead><tbody>"""
 
         for supplier, products in suppliers_filtered.items():
