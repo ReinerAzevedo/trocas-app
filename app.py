@@ -5,7 +5,7 @@ from datetime import datetime
 
 # Configuração de página
 st.set_page_config(
-    page_title="Gerenciador de Trocas v2.8", 
+    page_title="Gerenciador de Trocas v2.9", 
     page_icon="🔄", 
     layout="wide"
 )
@@ -58,7 +58,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Cabeçalho de Versão
-versao_app = "v2.8"
+versao_app = "v2.9"
 if 'data_compilacao' not in st.session_state:
     st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
@@ -188,7 +188,7 @@ if st.session_state['suppliers_dict'] is not None:
         if k in st.session_state['selected_sups'] and (st.session_state['filtro_depto'] == "Ambas" or v[0]['Departamento'] == st.session_state['filtro_depto'])
     }
 
-    # 4. GERAÇÃO DOS ARQUIVOS (EXCEL E HTML) PARA OS BOTÕES DE AÇÃO
+    # 4. GERAÇÃO DOS ARQUIVOS (EXCEL E HTML LIMPO PARA COMPARTILHAR)
     buffer_excel = io.BytesIO()
     grand_total_qty = 0
     grand_total_val = 0.0
@@ -220,8 +220,9 @@ if st.session_state['suppliers_dict'] is not None:
 
         excel_row = 1
 
+        # HTML sem autorun de impressão e com botão de ação opcional
         html_print = f"""<html><head><meta charset='utf-8'><style>
-            body {{ font-family: Arial; padding: 20px; }}
+            body {{ font-family: Arial, sans-serif; padding: 20px; color: #333; }}
             .v-info {{ font-size: 10px; color: #666; text-align: right; margin-bottom: 10px; }}
             h1 {{ font-size: 18px; text-align: center; margin-bottom: 5px; }}
             h3 {{ font-size: 11px; text-align: center; margin-bottom: 20px; font-weight: normal; }}
@@ -233,7 +234,13 @@ if st.session_state['suppliers_dict'] is not None:
             .grand {{ background: red; color: white; font-weight: bold; font-size: 13px; }}
             .center {{ text-align: center; }} .right {{ text-align: right; }}
             .tag {{ font-size: 9px; background: #eee; color: #333; padding: 2px 5px; margin-left: 5px; border-radius: 3px; font-weight: normal; }}
-        </style></head><body onload='window.print()'>
+            .no-print {{ text-align: center; margin-bottom: 20px; }}
+            .btn-print {{ background-color: #0078d4; color: white; border: none; padding: 10px 18px; font-size: 13px; font-weight: bold; border-radius: 4px; cursor: pointer; }}
+            @media print {{ .no-print {{ display: none; }} }}
+        </style></head><body>
+        <div class="no-print">
+            <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar em PDF</button>
+        </div>
         <div class="v-info">Versão: {versao_app} | Processado em: {st.session_state["data_compilacao"]}</div>
         <h1>Relatório Selecionado de Estoque de Trocas</h1>
         <h3><b>Data da Planilha Bruta:</b> {st.session_state['data_planilha_bruta']} | <b>Filtro:</b> {st.session_state['filtro_depto']} | <b>Loja:</b> LU 10-MONGAGUA</h3>
@@ -283,7 +290,7 @@ if st.session_state['suppliers_dict'] is not None:
         ws.set_column(0, 0, 45)
         ws.set_column(1, 4, 15)
 
-    # 5. BOTÕES DE AÇÃO NO TOPO DA BARRA LATERAL (LOGO ABAIXO DOS BOTÕES DE SELEÇÃO)
+    # 5. BOTÕES DE AÇÃO NO TOPO DA BARRA LATERAL
     st.sidebar.markdown("### 📥 Ações")
     st.sidebar.download_button(
         label="💾 Exportar Seleção para Excel",
@@ -294,9 +301,9 @@ if st.session_state['suppliers_dict'] is not None:
     )
     
     st.sidebar.download_button(
-        label="🖨️ Imprimir Seleção (PDF)",
+        label="🌐 Baixar Relatório HTML (WhatsApp)",
         data=html_print,
-        file_name="Imprimir_Relatorio_Filtrado.html",
+        file_name="Relatorio_Trocas_Formatado.html",
         mime="text/html",
         use_container_width=True
     )
@@ -322,7 +329,7 @@ if st.session_state['suppliers_dict'] is not None:
             on_change=on_change_cb
         )
 
-    # 7. RENDERIZAÇÃO DO PAINEL PRINCIPAL (CENTRAL)
+    # 7. RENDERIZAÇÃO DO PAINEL PRINCIPAL
     st.markdown("### 🎯 Filtrar Departamento View:")
     f_col1, f_col2, f_col3 = st.columns(3)
     
@@ -335,7 +342,6 @@ if st.session_state['suppliers_dict'] is not None:
 
     st.info(f"Visualizando: **{st.session_state['filtro_depto']}** | Data Referência da Planilha: **{st.session_state['data_planilha_bruta']}**")
 
-    # Totais por Departamento para os Cartões
     tot_merc_qty, tot_merc_val = 0, 0.0
     tot_perec_qty, tot_perec_val = 0, 0.0
 
@@ -361,7 +367,6 @@ if st.session_state['suppliers_dict'] is not None:
 
     st.markdown("---")
 
-    # Tabelas dos fornecedores no painel central
     for supplier, products in suppliers_filtered.items():
         depto_tag = products[0]['Departamento']
         st.markdown(f'<div class="supplier-header">{supplier.upper()} <span class="dept-tag">{depto_tag}</span></div>', unsafe_allow_html=True)
