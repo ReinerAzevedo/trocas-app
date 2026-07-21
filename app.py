@@ -5,7 +5,7 @@ from datetime import datetime
 
 # Configuração de página
 st.set_page_config(
-    page_title="Gerenciador de Trocas v2.6", 
+    page_title="Gerenciador de Trocas v2.7", 
     page_icon="🔄", 
     layout="wide"
 )
@@ -58,7 +58,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Cabeçalho de Versão
-versao_app = "v2.6"
+versao_app = "v2.7"
 if 'data_compilacao' not in st.session_state:
     st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
@@ -78,6 +78,10 @@ if 'data_planilha_bruta' not in st.session_state:
 # Botão de limpar painel
 if st.session_state['suppliers_dict'] is not None:
     if st.sidebar.button("🗑️ Limpar Painel / Novo Upload", use_container_width=True):
+        # Remove todas as chaves dinamicas salvas dos checkboxes
+        for k in list(st.session_state.keys()):
+            if k.startswith("cb_"):
+                del st.session_state[k]
         st.session_state['suppliers_dict'] = None
         st.session_state['selected_sups'] = set()
         st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
@@ -137,8 +141,11 @@ if st.session_state['suppliers_dict'] is None:
 
             if temp_dict:
                 st.session_state['suppliers_dict'] = dict(sorted(temp_dict.items()))
-                # Por padrão, todos vêm selecionados no upload inicial
                 st.session_state['selected_sups'] = set(temp_dict.keys())
+                
+                # Força o estado visual de todas as chaves dos checkboxes como True no upload
+                for sup_name in temp_dict.keys():
+                    st.session_state[f"cb_{sup_name}"] = True
                 
                 if datas_encontradas:
                     st.session_state['data_planilha_bruta'] = datas_encontradas[0]
@@ -164,13 +171,12 @@ if st.session_state['suppliers_dict'] is not None:
 
     st.info(f"Visualizando: **{st.session_state['filtro_depto']}** | Data Referência da Planilha: **{st.session_state['data_planilha_bruta']}**")
 
-    # 2. BARRA LATERAL: BUSCA E CHECKBOXES ACUMULATIVOS
+    # 2. BARRA LATERAL: BUSCA E CHECKBOXES SINCRONIZADOS
     st.sidebar.markdown("### 📋 Selecionar Fornecedores")
     
-    # Campo de busca instantâneo
     busca = st.sidebar.text_input("🔍 Buscar fornecedor:", "", placeholder="Digite o nome...", key="txt_busca").strip().upper()
 
-    # Identifica quais fornecedores estão visíveis na busca atual
+    # Identifica fornecedores visíveis pela busca atual
     sups_visiveis_side = []
     for sup_name, items in suppliers_dict_full.items():
         depto = items[0]['Departamento']
@@ -178,27 +184,32 @@ if st.session_state['suppliers_dict'] is not None:
             if busca == "" or busca in sup_name:
                 sups_visiveis_side.append(sup_name)
 
-    # Callbacks para marcar/desmarcar APENAS os visíveis na busca atual sem perder o resto
+    # Callbacks corrigidos para sincronizar o visual dos checkboxes e o conjunto de seleções
     def marcar_visiveis():
-        st.session_state['selected_sups'].update(sups_visiveis_side)
+        for s in sups_visiveis_side:
+            st.session_state[f"cb_{s}"] = True
+            st.session_state['selected_sups'].add(s)
 
     def desmarcar_visiveis():
-        st.session_state['selected_sups'].difference_update(sups_visiveis_side)
+        for s in sups_visiveis_side:
+            st.session_state[f"cb_{s}"] = False
+            st.session_state['selected_sups'].discard(s)
 
     btn_col1, btn_col2 = st.sidebar.columns(2)
     btn_col1.button("✅ Marcar Exibidos", on_click=marcar_visiveis, use_container_width=True)
     btn_col2.button("❌ Desmarcar", on_click=desmarcar_visiveis, use_container_width=True)
 
-    # Contador de seleções acumuladas
     st.sidebar.caption(f"Selecionados acumulados: **{len(st.session_state['selected_sups'])}** de {len(suppliers_dict_full)}")
     st.sidebar.markdown("---")
 
-    # Renderiza os checkboxes conectando diretamente ao conjunto global de seleções acumuladas
+    # Renderiza os checkboxes associando a chave visual de forma direta
     for sup_name in sups_visiveis_side:
         depto = suppliers_dict_full[sup_name][0]['Departamento']
-        is_selected = sup_name in st.session_state['selected_sups']
         
-        # Callback individual para atualizar o conjunto acumulado sem perder nada
+        # Garante inicialização da chave visual caso seja um fornecedor novo
+        if f"cb_{sup_name}" not in st.session_state:
+            st.session_state[f"cb_{sup_name}"] = (sup_name in st.session_state['selected_sups'])
+
         def on_change_cb(name=sup_name):
             if st.session_state[f"cb_{name}"]:
                 st.session_state['selected_sups'].add(name)
@@ -207,18 +218,17 @@ if st.session_state['suppliers_dict'] is not None:
 
         st.sidebar.checkbox(
             f"{sup_name} ({depto[0]})", 
-            value=is_selected,
             key=f"cb_{sup_name}",
             on_change=on_change_cb
         )
 
-    # Base filtrada acumulada real
+    # Base filtrada real acumulada
     suppliers_filtered = {
         k: v for k, v in suppliers_dict_full.items() 
         if k in st.session_state['selected_sups'] and (st.session_state['filtro_depto'] == "Ambas" or v[0]['Departamento'] == st.session_state['filtro_depto'])
     }
 
-    # 3. Totais por Departamento dos Fornecedores Acumulados
+    # 3. Totais por Departamento
     tot_merc_qty, tot_merc_val = 0, 0.0
     tot_perec_qty, tot_perec_val = 0, 0.0
 
@@ -245,7 +255,7 @@ if st.session_state['suppliers_dict'] is not None:
 
     st.markdown("---")
 
-    # 4. GERAÇÃO DOS ARQUIVOS (EXCEL E HTML) COM BASE NOS SELECCIONADOS ACUMULADOS
+    # 4. GERAÇÃO DOS ARQUIVOS (EXCEL E HTML)
     buffer_excel = io.BytesIO()
     grand_total_qty = 0
     grand_total_val = 0.0
