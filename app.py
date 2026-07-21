@@ -6,7 +6,7 @@ from datetime import datetime
 
 # Configuração de página
 st.set_page_config(
-    page_title="Gerenciador de Trocas v3.2", 
+    page_title="Gerenciador de Trocas v3.3", 
     page_icon="🔄", 
     layout="wide"
 )
@@ -64,7 +64,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Cabeçalho de Versão
-versao_app = "v3.2"
+versao_app = "v3.3"
 if 'data_compilacao' not in st.session_state:
     st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
@@ -78,6 +78,8 @@ if 'filtro_depto' not in st.session_state:
     st.session_state['filtro_depto'] = "Ambas"
 if 'selected_sups' not in st.session_state:
     st.session_state['selected_sups'] = set()
+if 'usuario_planilha' not in st.session_state:
+    st.session_state['usuario_planilha'] = "Reiner"
 if 'data_planilha_bruta' not in st.session_state:
     st.session_state['data_planilha_bruta'] = "Não identificada"
 
@@ -93,23 +95,33 @@ if st.session_state['suppliers_dict'] is None:
     if file_mercearia or file_pereciveis:
         if st.button("🚀 Processar Planilhas Anexadas", use_container_width=True):
             temp_dict = {}
-            datas_encontradas = []
+            user_found = None
+            date_found = None
             
             def ler_planilha(uploaded_file, depto_name):
-                df = pd.read_excel(uploaded_file, sheet_name=0)
+                nonlocal user_found, date_found
                 
-                # Varrer as primeiras 16 linhas do cabeçalho em busca de padrões de data válidos (ex: DD/MM/AAAA ou AAAA-MM-DD)
-                try:
-                    header_cells = df.iloc[:16].astype(str).values.flatten()
-                    for cell in header_cells:
-                        # Busca padrões como 20/07/2026 ou 2026-07-20
-                        match = re.search(r'\b(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})\b', cell)
-                        if match:
-                            datas_encontradas.append(match.group(1))
-                except:
-                    pass
+                # Lê a planilha bruta SEM cabeçalho definido para varrer todas as células do topo
+                df_raw = pd.read_excel(uploaded_file, header=None)
+                
+                # Procura no topo (primeiras 16 linhas e todas as colunas, incl. coluna L)
+                header_block = df_raw.iloc[:16]
+                for r in range(len(header_block)):
+                    for c in range(len(header_block.columns)):
+                        val = str(header_block.iat[r, c])
+                        if "Usuário:" in val or "Usuario:" in val or "reinerca" in val:
+                            # Extrai usuário (ex: reinerca)
+                            m_user = re.search(r'Usu[áa]rio:\s*([^\s-]+)', val, re.IGNORECASE)
+                            if m_user:
+                                user_found = m_user.group(1)
+                            
+                            # Extrai data e hora (ex: 20/07/2026 21:24:10)
+                            m_date = re.search(r'(\d{2}/\d{2}/\d{4}\s+\d{2}:\d{2}:\d{2}|\d{2}/\d{2}/\d{4})', val)
+                            if m_date:
+                                date_found = m_date.group(1)
 
-                df_clean = df.iloc[16:].copy()
+                # Processamento padrão da tabela a partir da linha 16
+                df_clean = df_raw.iloc[16:].copy()
                 df_clean.columns = df_clean.iloc[0]
                 df_clean = df_clean.iloc[1:].reset_index(drop=True)
 
@@ -143,11 +155,9 @@ if st.session_state['suppliers_dict'] is None:
                 for sup_name in temp_dict.keys():
                     st.session_state[f"cb_{sup_name}"] = True
                 
-                # Se encontrou datas reais no cabeçalho bruto, usa a primeira encontrada
-                if datas_encontradas:
-                    st.session_state['data_planilha_bruta'] = datas_encontradas[0]
-                else:
-                    st.session_state['data_planilha_bruta'] = datetime.now().strftime("%d/%m/%Y")
+                # Salva os dados exatos do cabeçalho da planilha capturada
+                st.session_state['usuario_planilha'] = user_found if user_found else "reinerca"
+                st.session_state['data_planilha_bruta'] = date_found if date_found else datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                     
                 st.rerun()
 
@@ -164,6 +174,7 @@ if st.session_state['suppliers_dict'] is not None:
         st.session_state['selected_sups'] = set()
         st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         st.session_state['data_planilha_bruta'] = "Não identificada"
+        st.session_state['usuario_planilha'] = "Reiner"
         st.rerun()
 
     # 2. IDENTIFICAÇÃO DOS VISÍVEIS PELA BUSCA E FILTRO DE DEPARTAMENTO
@@ -216,11 +227,11 @@ if st.session_state['suppliers_dict'] is not None:
         titulo_relatorio = "Relatório de Trocas"
         str_segmento_arquivo = "Vazio"
 
-    # EXTRAI A DATA LIMPA DA PLANILHA PARA COMPOR O NOME DO ARQUIVO
+    # EXTRAÇÃO DA DATA DA PLANILHA PARA COMPOR O NOME DO ARQUIVO (Ex: 20072026)
     raw_date = st.session_state['data_planilha_bruta']
-    clean_date_digits = re.sub(r'\D', '', raw_date)
-    if len(clean_date_digits) >= 8:
-        str_data_arquivo = clean_date_digits[:8]
+    match_date_digits = re.search(r'(\d{2})/(\d{2})/(\d{4})', raw_date)
+    if match_date_digits:
+        str_data_arquivo = f"{match_date_digits.group(1)}{match_date_digits.group(2)}{match_date_digits.group(3)}"
     else:
         str_data_arquivo = datetime.now().strftime("%d%m%Y")
 
@@ -280,8 +291,8 @@ if st.session_state['suppliers_dict'] is not None:
             <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar em PDF</button>
         </div>
         <div class="v-info">
-            <b>Gerado por:</b> Reiner | <b>Gerado em:</b> {data_geracao_agora}<br>
-            <b>Versão:</b> {versao_app} | <b>Data Referência Planilha:</b> {st.session_state['data_planilha_bruta']}
+            <b>Usuário Planilha:</b> {st.session_state['usuario_planilha']} | <b>Data/Hora Planilha:</b> {st.session_state['data_planilha_bruta']}<br>
+            <b>Versão App:</b> {versao_app} | <b>Processado no App em:</b> {data_geracao_agora}
         </div>
         <h1>{titulo_relatorio}</h1>
         <h3><b>Loja:</b> LU 10-MONGAGUA</h3>
@@ -331,7 +342,7 @@ if st.session_state['suppliers_dict'] is not None:
         ws.set_column(0, 0, 45)
         ws.set_column(1, 4, 15)
 
-    # 5. BOTÕES DE AÇÃO COM NOMES DE ARQUIVO DINÂMICOS DA PLANILHA
+    # 5. BOTÕES DE AÇÃO COM NOME DE ARQUIVO BASEADO NA PLANILHA
     st.sidebar.markdown("### 📥 Ações")
     st.sidebar.download_button(
         label="💾 Exportar Seleção para Excel",
@@ -381,7 +392,7 @@ if st.session_state['suppliers_dict'] is not None:
     if f_col3.button("🔄 AMBAS PLANILHAS", use_container_width=True):
         st.session_state['filtro_depto'] = "Ambas"
 
-    st.info(f"Visualizando: **{st.session_state['filtro_depto']}** | Data Referência da Planilha: **{st.session_state['data_planilha_bruta']}**")
+    st.info(f"Visualizando: **{st.session_state['filtro_depto']}** | Data Planilha: **{st.session_state['data_planilha_bruta']}**")
 
     tot_merc_qty, tot_merc_val = 0, 0.0
     tot_perec_qty, tot_perec_val = 0, 0.0
