@@ -5,60 +5,66 @@ from datetime import datetime
 
 # Configuração de página
 st.set_page_config(
-    page_title="Gerenciador de Trocas v2.9", 
+    page_title="Gerenciador de Trocas v3.0", 
     page_icon="🔄", 
     layout="wide"
 )
 
-# Estilização CSS
+# Estilização CSS responsiva e compacta para smartphone
 st.markdown("""
     <style>
     .version-header {
         font-size: 11px !important;
         color: #777777 !important;
         text-align: right;
-        margin-bottom: 10px;
+        margin-bottom: 5px;
     }
     .supplier-header {
         color: #FF0000 !important;
         font-weight: bold !important;
-        font-size: 18px !important;
-        margin-top: 20px !important;
-        margin-bottom: 5px !important;
+        font-size: 16px !important;
+        margin-top: 12px !important;
+        margin-bottom: 2px !important;
     }
     .total-supplier {
         color: #FF0000 !important;
         font-weight: bold !important;
-        font-size: 15px !important;
-        margin-top: 5px !important;
-        margin-bottom: 20px !important;
+        font-size: 14px !important;
+        margin-top: 2px !important;
+        margin-bottom: 12px !important;
         border-bottom: 2px solid #FF0000;
-        padding-bottom: 8px;
+        padding-bottom: 4px;
     }
     .grand-total-box {
         background-color: #FF0000 !important;
         color: #FFFFFF !important;
         font-weight: bold !important;
-        font-size: 20px !important;
-        padding: 12px !important;
+        font-size: 18px !important;
+        padding: 8px !important;
         border-radius: 5px !important;
         text-align: center !important;
-        margin-top: 20px !important;
+        margin-top: 15px !important;
     }
     .dept-tag {
-        font-size: 11px !important;
+        font-size: 10px !important;
         font-weight: bold !important;
         color: #555555 !important;
         background-color: #eeeeee !important;
-        padding: 2px 6px !important;
+        padding: 2px 5px !important;
         border-radius: 3px !important;
-        margin-left: 8px !important;
+        margin-left: 5px !important;
+    }
+    /* Compactação para telas de celular */
+    @media (max-width: 600px) {
+        .stButton>button { width: 100% !important; padding: 4px !important; }
+        .supplier-header { font-size: 15px !important; }
+        .total-supplier { font-size: 13px !important; }
     }
     </style>
 """, unsafe_allow_html=True)
 
 # Cabeçalho de Versão
-versao_app = "v2.9"
+versao_app = "v3.0"
 if 'data_compilacao' not in st.session_state:
     st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
@@ -188,7 +194,15 @@ if st.session_state['suppliers_dict'] is not None:
         if k in st.session_state['selected_sups'] and (st.session_state['filtro_depto'] == "Ambas" or v[0]['Departamento'] == st.session_state['filtro_depto'])
     }
 
-    # 4. GERAÇÃO DOS ARQUIVOS (EXCEL E HTML LIMPO PARA COMPARTILHAR)
+    # Definição do título dinâmico com base no filtro atual
+    if st.session_state['filtro_depto'] == "MERCEARIA":
+        titulo_relatorio = "Relatório de Trocas - MERCEARIA"
+    elif st.session_state['filtro_depto'] == "PERECÍVEIS":
+        titulo_relatorio = "Relatório de Trocas - PERECÍVEIS"
+    else:
+        titulo_relatorio = "Relatório de Trocas - MERCEARIA / PERECÍVEIS"
+
+    # 4. GERAÇÃO DOS ARQUIVOS (EXCEL E HTML COMPACTO E RESPONSIVO)
     buffer_excel = io.BytesIO()
     grand_total_qty = 0
     grand_total_val = 0.0
@@ -220,30 +234,35 @@ if st.session_state['suppliers_dict'] is not None:
 
         excel_row = 1
 
-        # HTML sem autorun de impressão e com botão de ação opcional
-        html_print = f"""<html><head><meta charset='utf-8'><style>
-            body {{ font-family: Arial, sans-serif; padding: 20px; color: #333; }}
-            .v-info {{ font-size: 10px; color: #666; text-align: right; margin-bottom: 10px; }}
-            h1 {{ font-size: 18px; text-align: center; margin-bottom: 5px; }}
-            h3 {{ font-size: 11px; text-align: center; margin-bottom: 20px; font-weight: normal; }}
-            table {{ width: 100%; border-collapse: collapse; margin-bottom: 20px; }}
-            th {{ background: black; color: white; padding: 8px; font-size: 11px; border: 1px solid black; text-align: left; }}
-            td {{ padding: 6px; font-size: 11px; border: 1px solid #ccc; }}
-            .sup {{ color: red; font-weight: bold; font-size: 14px; padding-top: 15px; border: none; }}
-            .sub {{ color: red; font-weight: bold; font-size: 12px; border-bottom: 2px solid red; }}
-            .grand {{ background: red; color: white; font-weight: bold; font-size: 13px; }}
+        # HTML Otimizado, sem autorun de impressão e com cabeçalho de usuário
+        data_geracao_agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        
+        html_print = f"""<html><head><meta charset='utf-8'><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>
+            body {{ font-family: Arial, sans-serif; padding: 10px; color: #333; margin: 0; }}
+            .v-info {{ font-size: 10px; color: #555; text-align: right; margin-bottom: 8px; line-height: 1.3; }}
+            h1 {{ font-size: 16px; text-align: center; margin-top: 5px; margin-bottom: 5px; color: #000; }}
+            h3 {{ font-size: 11px; text-align: center; margin-bottom: 12px; font-weight: normal; color: #444; }}
+            table {{ width: 100%; border-collapse: collapse; margin-bottom: 12px; }}
+            th {{ background: black; color: white; padding: 5px; font-size: 10px; border: 1px solid black; text-align: left; }}
+            td {{ padding: 4px 5px; font-size: 10px; border: 1px solid #ccc; }}
+            .sup {{ color: red; font-weight: bold; font-size: 12px; padding-top: 10px; border: none; }}
+            .sub {{ color: red; font-weight: bold; font-size: 11px; border-bottom: 2px solid red; }}
+            .grand {{ background: red; color: white; font-weight: bold; font-size: 12px; }}
             .center {{ text-align: center; }} .right {{ text-align: right; }}
-            .tag {{ font-size: 9px; background: #eee; color: #333; padding: 2px 5px; margin-left: 5px; border-radius: 3px; font-weight: normal; }}
-            .no-print {{ text-align: center; margin-bottom: 20px; }}
-            .btn-print {{ background-color: #0078d4; color: white; border: none; padding: 10px 18px; font-size: 13px; font-weight: bold; border-radius: 4px; cursor: pointer; }}
+            .tag {{ font-size: 8px; background: #eee; color: #333; padding: 1px 4px; margin-left: 4px; border-radius: 2px; font-weight: normal; }}
+            .no-print {{ text-align: center; margin-bottom: 12px; }}
+            .btn-print {{ background-color: #0078d4; color: white; border: none; padding: 8px 15px; font-size: 12px; font-weight: bold; border-radius: 4px; cursor: pointer; }}
             @media print {{ .no-print {{ display: none; }} }}
         </style></head><body>
         <div class="no-print">
             <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar em PDF</button>
         </div>
-        <div class="v-info">Versão: {versao_app} | Processado em: {st.session_state["data_compilacao"]}</div>
-        <h1>Relatório Selecionado de Estoque de Trocas</h1>
-        <h3><b>Data da Planilha Bruta:</b> {st.session_state['data_planilha_bruta']} | <b>Filtro:</b> {st.session_state['filtro_depto']} | <b>Loja:</b> LU 10-MONGAGUA</h3>
+        <div class="v-info">
+            <b>Gerado por:</b> Reiner | <b>Gerado em:</b> {data_geracao_agora}<br>
+            <b>Versão:</b> {versao_app} | <b>Data Referência Planilha:</b> {st.session_state['data_planilha_bruta']}
+        </div>
+        <h1>{titulo_relatorio}</h1>
+        <h3><b>Loja:</b> LU 10-MONGAGUA</h3>
         <table><thead><tr><th>Fornecedor / Produto</th><th>Código Interno</th><th>Última Compra</th><th class='center'>Estoque</th><th class='right'>Total</th></tr></thead><tbody>"""
 
         for supplier, products in suppliers_filtered.items():
@@ -284,7 +303,7 @@ if st.session_state['suppliers_dict'] is not None:
         ws.write(excel_row, 3, grand_total_qty, fmt_grand_qty)
         ws.write(excel_row, 4, grand_total_val, fmt_grand_val)
         
-        html_print += f"<tr class='grand'><td style='padding:8px;'>TOTAL GERAL DOS SELECIONADOS</td><td></td><td></td><td class='center'>{grand_total_qty}</td><td class='right'>R$ {grand_total_val:,.2f}</td></tr>"
+        html_print += f"<tr class='grand'><td style='padding:6px;'>TOTAL GERAL DOS SELECIONADOS</td><td></td><td></td><td class='center'>{grand_total_qty}</td><td class='right'>R$ {grand_total_val:,.2f}</td></tr>"
         html_print += "</tbody></table></body></html>"
 
         ws.set_column(0, 0, 45)
