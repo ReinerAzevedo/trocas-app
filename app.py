@@ -6,7 +6,7 @@ from datetime import datetime
 
 # Configuração de página
 st.set_page_config(
-    page_title="Gerenciador de Trocas v3.3", 
+    page_title="Gerenciador de Trocas v3.3.1", 
     page_icon="🔄", 
     layout="wide"
 )
@@ -64,7 +64,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Cabeçalho de Versão
-versao_app = "v3.3"
+versao_app = "v3.3.1"
 if 'data_compilacao' not in st.session_state:
     st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
@@ -79,7 +79,7 @@ if 'filtro_depto' not in st.session_state:
 if 'selected_sups' not in st.session_state:
     st.session_state['selected_sups'] = set()
 if 'usuario_planilha' not in st.session_state:
-    st.session_state['usuario_planilha'] = "Reiner"
+    st.session_state['usuario_planilha'] = "reinerca"
 if 'data_planilha_bruta' not in st.session_state:
     st.session_state['data_planilha_bruta'] = "Não identificada"
 
@@ -95,12 +95,9 @@ if st.session_state['suppliers_dict'] is None:
     if file_mercearia or file_pereciveis:
         if st.button("🚀 Processar Planilhas Anexadas", use_container_width=True):
             temp_dict = {}
-            user_found = None
-            date_found = None
+            extracted_info = {'user': None, 'date': None}
             
             def ler_planilha(uploaded_file, depto_name):
-                nonlocal user_found, date_found
-                
                 # Lê a planilha bruta SEM cabeçalho definido para varrer todas as células do topo
                 df_raw = pd.read_excel(uploaded_file, header=None)
                 
@@ -109,16 +106,14 @@ if st.session_state['suppliers_dict'] is None:
                 for r in range(len(header_block)):
                     for c in range(len(header_block.columns)):
                         val = str(header_block.iat[r, c])
-                        if "Usuário:" in val or "Usuario:" in val or "reinerca" in val:
-                            # Extrai usuário (ex: reinerca)
+                        if ("Usuário:" in val or "Usuario:" in val or "reinerca" in val) and not extracted_info['user']:
                             m_user = re.search(r'Usu[áa]rio:\s*([^\s-]+)', val, re.IGNORECASE)
                             if m_user:
-                                user_found = m_user.group(1)
+                                extracted_info['user'] = m_user.group(1)
                             
-                            # Extrai data e hora (ex: 20/07/2026 21:24:10)
                             m_date = re.search(r'(\d{2}/\d{2}/\d{4}\s+\d{2}:\d{2}:\d{2}|\d{2}/\d{2}/\d{4})', val)
                             if m_date:
-                                date_found = m_date.group(1)
+                                extracted_info['date'] = m_date.group(1)
 
                 # Processamento padrão da tabela a partir da linha 16
                 df_clean = df_raw.iloc[16:].copy()
@@ -156,8 +151,8 @@ if st.session_state['suppliers_dict'] is None:
                     st.session_state[f"cb_{sup_name}"] = True
                 
                 # Salva os dados exatos do cabeçalho da planilha capturada
-                st.session_state['usuario_planilha'] = user_found if user_found else "reinerca"
-                st.session_state['data_planilha_bruta'] = date_found if date_found else datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                st.session_state['usuario_planilha'] = extracted_info['user'] if extracted_info['user'] else "reinerca"
+                st.session_state['data_planilha_bruta'] = extracted_info['date'] if extracted_info['date'] else datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                     
                 st.rerun()
 
@@ -174,7 +169,7 @@ if st.session_state['suppliers_dict'] is not None:
         st.session_state['selected_sups'] = set()
         st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         st.session_state['data_planilha_bruta'] = "Não identificada"
-        st.session_state['usuario_planilha'] = "Reiner"
+        st.session_state['usuario_planilha'] = "reinerca"
         st.rerun()
 
     # 2. IDENTIFICAÇÃO DOS VISÍVEIS PELA BUSCA E FILTRO DE DEPARTAMENTO
@@ -227,7 +222,7 @@ if st.session_state['suppliers_dict'] is not None:
         titulo_relatorio = "Relatório de Trocas"
         str_segmento_arquivo = "Vazio"
 
-    # EXTRAÇÃO DA DATA DA PLANILHA PARA COMPOR O NOME DO ARQUIVO (Ex: 20072026)
+    # EXTRAÇÃO DA DATA DA PLANILHA PARA COMPOR O NOME DO ARQUIVO
     raw_date = st.session_state['data_planilha_bruta']
     match_date_digits = re.search(r'(\d{2})/(\d{2})/(\d{4})', raw_date)
     if match_date_digits:
