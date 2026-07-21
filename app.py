@@ -6,7 +6,7 @@ from datetime import datetime
 
 # Configuração de página
 st.set_page_config(
-    page_title="Gerenciador de Trocas v3.1", 
+    page_title="Gerenciador de Trocas v3.2", 
     page_icon="🔄", 
     layout="wide"
 )
@@ -64,7 +64,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Cabeçalho de Versão
-versao_app = "v3.1"
+versao_app = "v3.2"
 if 'data_compilacao' not in st.session_state:
     st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
@@ -97,11 +97,15 @@ if st.session_state['suppliers_dict'] is None:
             
             def ler_planilha(uploaded_file, depto_name):
                 df = pd.read_excel(uploaded_file, sheet_name=0)
+                
+                # Varrer as primeiras 16 linhas do cabeçalho em busca de padrões de data válidos (ex: DD/MM/AAAA ou AAAA-MM-DD)
                 try:
-                    for r in range(min(15, len(df))):
-                        linha_str = " ".join([str(val) for val in df.iloc[r].values if pd.notna(val)])
-                        if "Data" in linha_str or "Emissão" in linha_str or "Periodo" in linha_str:
-                            datas_encontradas.append(linha_str)
+                    header_cells = df.iloc[:16].astype(str).values.flatten()
+                    for cell in header_cells:
+                        # Busca padrões como 20/07/2026 ou 2026-07-20
+                        match = re.search(r'\b(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})\b', cell)
+                        if match:
+                            datas_encontradas.append(match.group(1))
                 except:
                     pass
 
@@ -139,6 +143,7 @@ if st.session_state['suppliers_dict'] is None:
                 for sup_name in temp_dict.keys():
                     st.session_state[f"cb_{sup_name}"] = True
                 
+                # Se encontrou datas reais no cabeçalho bruto, usa a primeira encontrada
                 if datas_encontradas:
                     st.session_state['data_planilha_bruta'] = datas_encontradas[0]
                 else:
@@ -194,7 +199,7 @@ if st.session_state['suppliers_dict'] is not None:
         if k in st.session_state['selected_sups'] and (st.session_state['filtro_depto'] == "Ambas" or v[0]['Departamento'] == st.session_state['filtro_depto'])
     }
 
-    # IDENTIFICAÇÃO REAL DOS DEPARTAMENTOS PRESENTES NOS SELECCIONADOS (CORREÇÃO DO TÍTULO)
+    # IDENTIFICAÇÃO DOS DEPARTAMENTOS PRESENTES NOS SELECCIONADOS
     deptos_presentes = set()
     for s_name, products in suppliers_filtered.items():
         if products:
@@ -211,9 +216,15 @@ if st.session_state['suppliers_dict'] is not None:
         titulo_relatorio = "Relatório de Trocas"
         str_segmento_arquivo = "Vazio"
 
-    # MONTAGEM DA DATA E HORA PARA O NOME DO ARQUIVO (Ex: 20072026-23-22-Trocas-Mercearia)
-    data_hora_prefixo = datetime.now().strftime("%d%m%Y-%H-%M")
-    nome_arquivo_base = f"{data_hora_prefixo}-Trocas-{str_segmento_arquivo}"
+    # EXTRAI A DATA LIMPA DA PLANILHA PARA COMPOR O NOME DO ARQUIVO
+    raw_date = st.session_state['data_planilha_bruta']
+    clean_date_digits = re.sub(r'\D', '', raw_date)
+    if len(clean_date_digits) >= 8:
+        str_data_arquivo = clean_date_digits[:8]
+    else:
+        str_data_arquivo = datetime.now().strftime("%d%m%Y")
+
+    nome_arquivo_base = f"{str_data_arquivo}-Trocas-{str_segmento_arquivo}"
 
     # 4. GERAÇÃO DOS ARQUIVOS (EXCEL E HTML)
     buffer_excel = io.BytesIO()
@@ -320,7 +331,7 @@ if st.session_state['suppliers_dict'] is not None:
         ws.set_column(0, 0, 45)
         ws.set_column(1, 4, 15)
 
-    # 5. BOTÕES DE AÇÃO COM NOMES DE ARQUIVO DINÂMICOS
+    # 5. BOTÕES DE AÇÃO COM NOMES DE ARQUIVO DINÂMICOS DA PLANILHA
     st.sidebar.markdown("### 📥 Ações")
     st.sidebar.download_button(
         label="💾 Exportar Seleção para Excel",
