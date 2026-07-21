@@ -6,7 +6,7 @@ from datetime import datetime
 
 # Configuração de página
 st.set_page_config(
-    page_title="Gerenciador de Trocas v3.3.1", 
+    page_title="Gerenciador de Trocas v3.3.2", 
     page_icon="🔄", 
     layout="wide"
 )
@@ -64,7 +64,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Cabeçalho de Versão
-versao_app = "v3.3.1"
+versao_app = "v3.3.2"
 if 'data_compilacao' not in st.session_state:
     st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
@@ -98,25 +98,26 @@ if st.session_state['suppliers_dict'] is None:
             extracted_info = {'user': None, 'date': None}
             
             def ler_planilha(uploaded_file, depto_name):
-                # Lê a planilha bruta SEM cabeçalho definido para varrer todas as células do topo
-                df_raw = pd.read_excel(uploaded_file, header=None)
-                
-                # Procura no topo (primeiras 16 linhas e todas as colunas, incl. coluna L)
-                header_block = df_raw.iloc[:16]
-                for r in range(len(header_block)):
-                    for c in range(len(header_block.columns)):
-                        val = str(header_block.iat[r, c])
-                        if ("Usuário:" in val or "Usuario:" in val or "reinerca" in val) and not extracted_info['user']:
-                            m_user = re.search(r'Usu[áa]rio:\s*([^\s-]+)', val, re.IGNORECASE)
-                            if m_user:
-                                extracted_info['user'] = m_user.group(1)
-                            
-                            m_date = re.search(r'(\d{2}/\d{2}/\d{4}\s+\d{2}:\d{2}:\d{2}|\d{2}/\d{2}/\d{4})', val)
-                            if m_date:
-                                extracted_info['date'] = m_date.group(1)
+                # 1. Varredura isolada do cabeçalho bruto (linhas 0 a 15) para extrair Usuário e Data/Hora
+                try:
+                    df_head = pd.read_excel(uploaded_file, header=None, nrows=16)
+                    for r in range(len(df_head)):
+                        for c in range(len(df_head.columns)):
+                            val = str(df_head.iat[r, c])
+                            if ("Usuário:" in val or "Usuario:" in val or "reinerca" in val) and not extracted_info['user']:
+                                m_user = re.search(r'Usu[áa]rio:\s*([^\s-]+)', val, re.IGNORECASE)
+                                if m_user:
+                                    extracted_info['user'] = m_user.group(1)
+                                
+                                m_date = re.search(r'(\d{2}/\d{2}/\d{4}\s+\d{2}:\d{2}:\d{2}|\d{2}/\d{2}/\d{4})', val)
+                                if m_date:
+                                    extracted_info['date'] = m_date.group(1)
+                except:
+                    pass
 
-                # Processamento padrão da tabela a partir da linha 16
-                df_clean = df_raw.iloc[16:].copy()
+                # 2. Leitura padrão da tabela a partir da linha 16 ajustando o cabeçalho
+                df = pd.read_excel(uploaded_file, sheet_name=0)
+                df_clean = df.iloc[16:].copy()
                 df_clean.columns = df_clean.iloc[0]
                 df_clean = df_clean.iloc[1:].reset_index(drop=True)
 
@@ -150,7 +151,6 @@ if st.session_state['suppliers_dict'] is None:
                 for sup_name in temp_dict.keys():
                     st.session_state[f"cb_{sup_name}"] = True
                 
-                # Salva os dados exatos do cabeçalho da planilha capturada
                 st.session_state['usuario_planilha'] = extracted_info['user'] if extracted_info['user'] else "reinerca"
                 st.session_state['data_planilha_bruta'] = extracted_info['date'] if extracted_info['date'] else datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                     
