@@ -6,7 +6,7 @@ from datetime import datetime
 
 # Configuração de página
 st.set_page_config(
-    page_title="Gerenciador de Trocas v3.6", 
+    page_title="Gerenciador de Trocas v3.7", 
     page_icon="🔄", 
     layout="wide"
 )
@@ -55,16 +55,6 @@ st.markdown("""
         border-radius: 3px !important;
         margin-left: 5px !important;
     }
-    .alert-tag {
-        font-size: 9px !important;
-        font-weight: bold !important;
-        color: #d9534f !important;
-        background-color: #fdf2f2 !important;
-        border: 1px solid #d9534f !important;
-        padding: 1px 4px !important;
-        border-radius: 3px !important;
-        margin-left: 4px !important;
-    }
     @media (max-width: 600px) {
         .stButton>button { width: 100% !important; padding: 4px !important; }
         .supplier-header { font-size: 15px !important; }
@@ -74,7 +64,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Cabeçalho de Versão
-versao_app = "v3.6"
+versao_app = "v3.7"
 if 'data_compilacao' not in st.session_state:
     st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
@@ -140,7 +130,6 @@ if st.session_state['suppliers_dict'] is None:
                         
                         data_compra_str = str(row['Última Compra']).split()[0] if pd.notna(row['Última Compra']) else ""
                         
-                        # Cálculo do Alerta de Troca Antiga (+60 dias)
                         is_critico = False
                         try:
                             d_compra = datetime.strptime(data_compra_str, "%Y-%m-%d")
@@ -258,6 +247,12 @@ if st.session_state['suppliers_dict'] is not None:
     grand_total_qty = 0
     grand_total_val = 0.0
 
+    # MONTAGEM DA MENSAGEM PARA WHATSAPP
+    wsp_text = f"🚨 *RESUMO DE TROCAS - LU 10 MONGAGUÁ*\n"
+    wsp_text += f"📅 *Data Ref:* {st.session_state['data_planilha_bruta']}\n"
+    wsp_text += f"👤 *Usuário:* {st.session_state['usuario_planilha']}\n"
+    wsp_text += f"-----------------------------------\n\n"
+
     with pd.ExcelWriter(buffer_excel, engine='xlsxwriter') as writer:
         wb = writer.book
         ws = wb.add_worksheet('Trocas Formatado')
@@ -324,6 +319,8 @@ if st.session_state['suppliers_dict'] is not None:
             sub_qty = 0
             sub_val = 0.0
 
+            wsp_text += f"📦 *{supplier.upper()}* ({depto_tag})\n"
+
             for p in products:
                 ws.write(excel_row, 0, p['Produto'], fmt_product)
                 ws.write(excel_row, 1, p['Código Interno'], fmt_center)
@@ -334,12 +331,18 @@ if st.session_state['suppliers_dict'] is not None:
                 tag_crit = " <span class='crit'>⚠️ +60d</span>" if p['Critico'] else ""
                 html_print += f"<tr><td>{p['Produto']}{tag_crit}</td><td class='center'>{p['Código Interno']}</td><td class='center'>{p['Última Compra']}</td><td class='center'>{p['Estoque']}</td><td class='right'>R$ {p['Total']:,.2f}</td></tr>"
                 
+                # Detalhamento de itens no texto do WhatsApp
+                alerta_wsp = " ⚠️" if p['Critico'] else ""
+                wsp_text += f"  • {p['Produto']} (Cod: {p['Código Interno']}) - Qtd: {p['Estoque']} | R$ {p['Total']:,.2f}{alerta_wsp}\n"
+
                 sub_qty += p['Estoque']
                 sub_val += p['Total']
                 excel_row += 1
 
             grand_total_qty += sub_qty
             grand_total_val += sub_val
+
+            wsp_text += f"👉 *Subtotal:* {sub_qty} itens — R$ {sub_val:,.2f}\n\n"
 
             ws.write(excel_row, 0, f"TOTAL {supplier.upper()}", fmt_subtotal)
             ws.write(excel_row, 3, sub_qty, fmt_sub_qty)
@@ -357,10 +360,13 @@ if st.session_state['suppliers_dict'] is not None:
         html_print += f"<tr class='grand'><td style='padding:6px;'>TOTAL GERAL DOS SELECIONADOS</td><td></td><td></td><td class='center'>{grand_total_qty}</td><td class='right'>R$ {grand_total_val:,.2f}</td></tr>"
         html_print += "</tbody></table></body></html>"
 
+        wsp_text += f"-----------------------------------\n"
+        wsp_text += f"💰 *TOTAL GERAL SELECIONADO:* {grand_total_qty} itens | R$ {grand_total_val:,.2f}"
+
         ws.set_column(0, 0, 45)
         ws.set_column(1, 4, 15)
 
-    # 5. BOTÕES DE AÇÃO COM NOME DE ARQUIVO BASEADO NA PLANILHA
+    # 5. BOTÕES DE AÇÃO E CÓPIA RÁPIDA NO TOPO DA BARRA LATERAL
     st.sidebar.markdown("### 📥 Ações")
     st.sidebar.download_button(
         label="💾 Exportar Seleção para Excel",
@@ -377,6 +383,9 @@ if st.session_state['suppliers_dict'] is not None:
         mime="text/html",
         use_container_width=True
     )
+
+    with st.sidebar.expander("📲 Texto de Cópia Rápida (WhatsApp)"):
+        st.text_area("Copie o texto abaixo e cole no WhatsApp:", value=wsp_text, height=200)
 
     st.sidebar.markdown("---")
 
@@ -456,7 +465,7 @@ if st.session_state['suppliers_dict'] is not None:
 
     st.markdown("---")
 
-    # RENDERIZAÇÃO DAS TABELAS COM EXPORTAÇÃO INDIVIDUAL E ALERTA CRÍTICO (SUGESTÕES 1 e 4)
+    # RENDERIZAÇÃO DAS TABELAS COM EXPORTAÇÃO INDIVIDUAL E RECIBO COM COMPROVANTE DE ASSINATURA
     for supplier, products in suppliers_filtered.items():
         depto_tag = products[0]['Departamento']
         st.markdown(f'<div class="supplier-header">{supplier.upper()} <span class="dept-tag">{depto_tag}</span></div>', unsafe_allow_html=True)
@@ -467,14 +476,15 @@ if st.session_state['suppliers_dict'] is not None:
         prod_df = pd.DataFrame(products)[['Produto', 'Código Interno', 'Última Compra', 'Estoque', 'Total', 'Critico']]
         view_df = prod_df.copy()
         
-        # Insere tag visual de alerta na coluna de produto se for troca antiga
         view_df['Produto'] = view_df.apply(lambda r: f"⚠️ {r['Produto']} (+60d)" if r['Critico'] else r['Produto'], axis=1)
         view_df['Total'] = view_df['Total'].map('R$ {:,.2f}'.format)
         
         st.dataframe(view_df[['Produto', 'Código Interno', 'Última Compra', 'Estoque', 'Total']], use_container_width=True, hide_index=True)
         st.markdown(f'<div class="total-supplier">TOTAL {supplier.upper()}: {sub_qty} itens — R$ {sub_val:,.2f}</div>', unsafe_allow_html=True)
 
-        # SUGESTÃO 4: Gerador de HTML Individual por Fornecedor
+        col_act1, col_act2 = st.columns(2)
+
+        # 1. HTML Tradicional do Fornecedor
         html_ind = f"""<html><head><meta charset='utf-8'><style>
             body {{ font-family: Arial; padding: 20px; }}
             h2 {{ color: red; text-align: center; }}
@@ -491,12 +501,68 @@ if st.session_state['suppliers_dict'] is not None:
             html_ind += f"<tr><td>{p['Produto']}</td><td class='center'>{p['Código Interno']}</td><td class='center'>{p['Última Compra']}</td><td class='center'>{p['Estoque']}</td><td class='right'>R$ {p['Total']:,.2f}</td></tr>"
         html_ind += f"<tr class='sub'><td>TOTAL {supplier.upper()}</td><td></td><td></td><td class='center'>{sub_qty}</td><td class='right'>R$ {sub_val:,.2f}</td></tr></tbody></table></body></html>"
 
-        st.download_button(
-            label=f"📄 Baixar Relatório Individual ({supplier.upper()})",
+        col_act1.download_button(
+            label=f"📄 Relatório ({supplier.upper()})",
             data=html_ind,
             file_name=f"{str_data_arquivo}-Troca-{supplier.replace(' ', '_')}.html",
             mime="text/html",
-            key=f"btn_ind_{supplier}"
+            key=f"btn_ind_{supplier}",
+            use_container_width=True
+        )
+
+        # 2. HTML RECIBO COM VISUAL DESTACADO E PROTOCOLO DE ASSINATURA
+        html_recibo = f"""<html><head><meta charset='utf-8'><style>
+            body {{ font-family: 'Courier New', Courier, monospace; padding: 15px; max-width: 600px; margin: auto; border: 2px dashed #000; background-color: #fafafa; }}
+            h2 {{ text-align: center; margin-bottom: 2px; text-transform: uppercase; border-bottom: 2px solid #000; padding-bottom: 8px; }}
+            .info-box {{ font-size: 11px; margin-bottom: 15px; border-bottom: 1px solid #000; padding-bottom: 10px; line-height: 1.4; }}
+            table {{ width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 15px; }}
+            th {{ border-bottom: 2px solid #000; font-size: 11px; text-align: left; padding: 4px 0; }}
+            td {{ padding: 6px 0; font-size: 11px; border-bottom: 1px dotted #ccc; }}
+            .tot-box {{ border-top: 2px solid #000; border-bottom: 2px solid #000; font-size: 13px; font-weight: bold; padding: 8px 0; margin-bottom: 25px; }}
+            .sig-section {{ margin-top: 40px; display: flex; justify-content: space-between; font-size: 11px; text-align: center; }}
+            .sig-line {{ border-top: 1px solid #000; width: 45%; padding-top: 4px; }}
+            .center {{ text-align: center; }} .right {{ text-align: right; }}
+            .no-print {{ text-align: center; margin-bottom: 15px; }}
+            .btn-print {{ background-color: #000; color: #fff; border: none; padding: 8px 12px; font-weight: bold; cursor: pointer; }}
+            @media print {{ .no-print {{ display: none; }} }}
+        </style></head><body>
+            <div class="no-print">
+                <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar Recibo PDF</button>
+            </div>
+            <h2>COMPROVANTE DE DEVOLUÇÃO / TROCA</h2>
+            <div class="info-box">
+                <b>LOJA:</b> LU 10-MONGAGUA<br>
+                <b>FORNECEDOR:</b> {supplier.upper()}<br>
+                <b>DEPARTAMENTO:</b> {depto_tag}<br>
+                <b>DATA EMISSÃO PLANILHA:</b> {st.session_state['data_planilha_bruta']}<br>
+                <b>AUDITOR / USUÁRIO:</b> {st.session_state['usuario_planilha']}
+            </div>
+            <table><thead><tr><th>PRODUTO</th><th class='center'>COD</th><th class='center'>QTD</th><th class='right'>TOTAL</th></tr></thead><tbody>"""
+        
+        for p in products:
+            html_recibo += f"<tr><td>{p['Produto']}</td><td class='center'>{p['Código Interno']}</td><td class='center'>{p['Estoque']}</td><td class='right'>R$ {p['Total']:,.2f}</td></tr>"
+            
+        html_recibo += f"""</tbody></table>
+            <div class="tot-box">
+                <span style='float:left;'>TOTAL A DEVOLVER:</span>
+                <span style='float:right;'>{sub_qty} itens — R$ {sub_val:,.2f}</span>
+                <div style='clear:both;'></div>
+            </div>
+            <div style='font-size:10px; text-align:center; margin-bottom:30px;'>Declaro que recebi os itens discriminados acima para conferência/troca.</div>
+            <div class="sig-section">
+                <div class="sig-line">Assinatura Promotor / Repr.</div>
+                <div class="sig-line" style="float:right;">Conferente da Loja</div>
+                <div style="clear:both;"></div>
+            </div>
+        </body></html>"""
+
+        col_act2.download_button(
+            label=f"🧾 Recibo / Vale-Troca ({supplier.upper()})",
+            data=html_recibo,
+            file_name=f"{str_data_arquivo}-RECIBO-{supplier.replace(' ', '_')}.html",
+            mime="text/html",
+            key=f"btn_rec_{supplier}",
+            use_container_width=True
         )
 
     st.markdown(f'<div class="grand-total-box">TOTAL GERAL DOS SELECIONADOS<br>Estoque: {grand_total_qty} | R$ {grand_total_val:,.2f}</div>', unsafe_allow_html=True)
