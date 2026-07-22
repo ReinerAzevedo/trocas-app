@@ -6,12 +6,12 @@ from datetime import datetime
 
 # Configuração de página
 st.set_page_config(
-    page_title="Gerenciador de Trocas v4.0", 
+    page_title="Gerenciador de Trocas v4.1", 
     page_icon="🔄", 
     layout="wide"
 )
 
-# Estilização CSS completa com cores exclusivas, alto contraste e botões coloridos
+# Estilização CSS completa com seletores genéricos diretos para garantir a aplicação de cores
 st.markdown("""
     <style>
     .version-header {
@@ -72,7 +72,18 @@ st.markdown("""
         margin-bottom: 10px;
     }
 
-    /* 1. BOTÕES DE FILTRO DE DEPARTAMENTO (TOPO) */
+    /* 1. BOTÃO DE PROCESSAR PLANILHAS (TELA INICIAL) */
+    .btn-processar button {
+        background-color: #2E7D32 !important;
+        color: white !important;
+        font-weight: bold !important;
+        font-size: 16px !important;
+        border: none !important;
+        border-radius: 6px !important;
+        padding: 8px !important;
+    }
+
+    /* 2. BOTÕES DE FILTRO DE DEPARTAMENTO (TOPO) */
     div[data-testid="stHorizontalBlock"] > div:nth-child(1) button {
         background-color: #1E88E5 !important;
         color: white !important;
@@ -95,9 +106,8 @@ st.markdown("""
         border-radius: 6px !important;
     }
 
-    /* 2. BOTÕES DA BARRA LATERAL */
-    /* Limpar Painel */
-    div[data-testid="stSidebar"] div.stButton:nth-of-type(1) button {
+    /* 3. BOTÕES DA BARRA LATERAL (USA ENVOLTÓRIOS DIV EXCLUSIVOS PARA NÃO FALHAR) */
+    .btn-limpar button {
         background-color: #D32F2F !important;
         color: white !important;
         font-weight: bold !important;
@@ -105,22 +115,20 @@ st.markdown("""
         border: none !important;
     }
 
-    /* Marcar e Desmarcar Exibidos */
-    div[data-testid="stSidebar"] div.stButton:nth-of-type(2) button {
+    .btn-marcar button {
         background-color: #2E7D32 !important;
         color: white !important;
         font-weight: bold !important;
         border: none !important;
     }
-    div[data-testid="stSidebar"] div.stButton:nth-of-type(3) button {
+    .btn-desmarcar button {
         background-color: #455A64 !important;
         color: white !important;
         font-weight: bold !important;
         border: none !important;
     }
 
-    /* Excel (Verde Excel) */
-    div[data-testid="stSidebar"] div.stDownloadButton:nth-of-type(1) button {
+    .btn-excel button {
         background-color: #107C41 !important;
         color: white !important;
         font-weight: bold !important;
@@ -128,8 +136,7 @@ st.markdown("""
         border: none !important;
     }
 
-    /* WhatsApp HTML (Verde WhatsApp) */
-    div[data-testid="stSidebar"] div.stDownloadButton:nth-of-type(2) button {
+    .btn-wsp button {
         background-color: #25D366 !important;
         color: white !important;
         font-weight: bold !important;
@@ -138,14 +145,13 @@ st.markdown("""
     }
 
     /* Cópia Rápida Expander Header */
-    div[data-testid="stSidebar"] .st-emotion-cache-1h993vh, 
     div[data-testid="stSidebar"] details {
-        border: 1px solid #00838F !important;
+        border: 2px solid #00838F !important;
+        background-color: #e0f7fa !important;
         border-radius: 6px !important;
     }
 
-    /* 3. BOTÕES POR FORNECEDOR (PAINEL CENTRAL) */
-    /* Relatório Individual (Azul Cobalto) */
+    /* 4. BOTÕES POR FORNECEDOR (PAINEL CENTRAL) */
     .btn-relatorio-ind button {
         background-color: #1565C0 !important;
         color: white !important;
@@ -153,7 +159,6 @@ st.markdown("""
         border: none !important;
         border-radius: 6px !important;
     }
-    /* Recibo Vale-Troca (Laranja Queimado) */
     .btn-recibo-ind button {
         background-color: #D84315 !important;
         color: white !important;
@@ -171,7 +176,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Cabeçalho de Versão
-versao_app = "v4.0"
+versao_app = "v4.1"
 if 'data_compilacao' not in st.session_state:
     st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
@@ -204,6 +209,7 @@ if st.session_state['suppliers_dict'] is None:
         file_pereciveis = st.file_uploader("Anexar Perecíveis (.xlsx)", type=["xlsx"], key="perec")
 
     if file_mercearia or file_pereciveis:
+        st.markdown('<div class="btn-processar">', unsafe_allow_html=True)
         if st.button("🚀 Processar Planilhas Anexadas", use_container_width=True):
             temp_dict = {}
             extracted_info = {'user': None, 'date': None}
@@ -278,12 +284,14 @@ if st.session_state['suppliers_dict'] is None:
                 st.session_state['data_planilha_bruta'] = extracted_info['date'] if extracted_info['date'] else datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                     
                 st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # --- RENDERIZAÇÃO E FILTROS ---
 if st.session_state['suppliers_dict'] is not None:
     suppliers_dict_full = st.session_state['suppliers_dict']
 
-    # 1. BOTÃO DE LIMPAR
+    # 1. BOTÃO DE LIMPAR PAINEL
+    st.sidebar.markdown('<div class="btn-limpar">', unsafe_allow_html=True)
     if st.sidebar.button("🗑️ Limpar Painel / Novo Upload", use_container_width=True):
         for k in list(st.session_state.keys()):
             if k.startswith("cb_"):
@@ -294,6 +302,7 @@ if st.session_state['suppliers_dict'] is not None:
         st.session_state['data_planilha_bruta'] = "Não identificada"
         st.session_state['usuario_planilha'] = "reinerca"
         st.rerun()
+    st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
     # 2. SELEÇÃO DE FORNECEDORES
     st.sidebar.markdown("### 📋 Selecionar Fornecedores")
@@ -317,8 +326,14 @@ if st.session_state['suppliers_dict'] is not None:
             st.session_state['selected_sups'].discard(s)
 
     btn_col1, btn_col2 = st.sidebar.columns(2)
-    btn_col1.button("✅ Marcar", on_click=marcar_visiveis, use_container_width=True)
-    btn_col2.button("❌ Desmarcar", on_click=desmarcar_visiveis, use_container_width=True)
+    with btn_col1:
+        st.markdown('<div class="btn-marcar">', unsafe_allow_html=True)
+        st.button("✅ Marcar", on_click=marcar_visiveis, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+    with btn_col2:
+        st.markdown('<div class="btn-desmarcar">', unsafe_allow_html=True)
+        st.button("❌ Desmarcar", on_click=desmarcar_visiveis, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
     st.sidebar.caption(f"Selecionados acumulados: **{len(st.session_state['selected_sups'])}** de {len(suppliers_dict_full)}")
 
@@ -475,8 +490,10 @@ if st.session_state['suppliers_dict'] is not None:
         ws.set_column(0, 0, 45)
         ws.set_column(1, 4, 15)
 
-    # 5. BOTÕES DE AÇÕES LATERAIS
+    # 5. BOTÕES DE AÇÕES LATERAIS COM ENVOLTÓRIOS DIV EXCLUSIVOS
     st.sidebar.markdown("### 📥 Ações")
+    
+    st.sidebar.markdown('<div class="btn-excel">', unsafe_allow_html=True)
     st.sidebar.download_button(
         label="📊 Exportar Seleção para Excel",
         data=buffer_excel.getvalue(),
@@ -484,7 +501,9 @@ if st.session_state['suppliers_dict'] is not None:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True
     )
+    st.sidebar.markdown('</div>', unsafe_allow_html=True)
     
+    st.sidebar.markdown('<div class="btn-wsp">', unsafe_allow_html=True)
     st.sidebar.download_button(
         label="💬 Baixar Relatório HTML (WhatsApp)",
         data=html_print,
@@ -492,6 +511,7 @@ if st.session_state['suppliers_dict'] is not None:
         mime="text/html",
         use_container_width=True
     )
+    st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
     with st.sidebar.expander("📲 Texto de Cópia Rápida (WhatsApp)"):
         st.text_area("Copie o texto abaixo e cole no WhatsApp:", value=wsp_text, height=200)
