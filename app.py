@@ -6,7 +6,7 @@ from datetime import datetime
 
 # Configuração de página
 st.set_page_config(
-    page_title="Gerenciador de Trocas v3.4", 
+    page_title="Gerenciador de Trocas v3.5", 
     page_icon="🔄", 
     layout="wide"
 )
@@ -64,7 +64,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Cabeçalho de Versão
-versao_app = "v3.4"
+versao_app = "v3.5"
 if 'data_compilacao' not in st.session_state:
     st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
@@ -98,7 +98,6 @@ if st.session_state['suppliers_dict'] is None:
             extracted_info = {'user': None, 'date': None}
             
             def ler_planilha(uploaded_file, depto_name):
-                # 1. Varredura isolada do cabeçalho bruto (linhas 0 a 15)
                 try:
                     df_head = pd.read_excel(uploaded_file, header=None, nrows=16)
                     for r in range(len(df_head)):
@@ -115,7 +114,6 @@ if st.session_state['suppliers_dict'] is None:
                 except:
                     pass
 
-                # 2. Leitura padrão da tabela a partir da linha 16
                 df = pd.read_excel(uploaded_file, sheet_name=0)
                 df_clean = df.iloc[16:].copy()
                 df_clean.columns = df_clean.iloc[0]
@@ -205,7 +203,6 @@ if st.session_state['suppliers_dict'] is not None:
         if k in st.session_state['selected_sups'] and (st.session_state['filtro_depto'] == "Ambas" or v[0]['Departamento'] == st.session_state['filtro_depto'])
     }
 
-    # IDENTIFICAÇÃO DOS DEPARTAMENTOS PRESENTES NOS SELECCIONADOS
     deptos_presentes = set()
     for s_name, products in suppliers_filtered.items():
         if products:
@@ -222,7 +219,6 @@ if st.session_state['suppliers_dict'] is not None:
         titulo_relatorio = "Relatório de Trocas"
         str_segmento_arquivo = "Vazio"
 
-    # EXTRAÇÃO DA DATA DA PLANILHA PARA COMPOR O NOME DO ARQUIVO
     raw_date = st.session_state['data_planilha_bruta']
     match_date_digits = re.search(r'(\d{2})/(\d{2})/(\d{4})', raw_date)
     if match_date_digits:
@@ -412,12 +408,13 @@ if st.session_state['suppliers_dict'] is not None:
     if st.session_state['filtro_depto'] == "Ambas" and (tot_merc_qty > 0 and tot_perec_qty > 0):
         c_tot3.metric("TOTAL GERAL CONSOLIDADO", f"R$ {(tot_merc_val + tot_perec_val):,.2f}", f"{tot_merc_qty + tot_perec_qty} itens")
 
-    # --- NOVO: GRÁFICO DINÂMICO COMPACTO ENTRE OS TOTAIS E AS TABELAS ---
+    # --- GRÁFICO DINÂMICO FORMATADO COM 2 CASAS DECIMAIS ---
     if suppliers_filtered:
         chart_data = []
         for sup_name, prods in suppliers_filtered.items():
             tot_val = sum(p['Total'] for p in prods)
-            chart_data.append({'Fornecedor': sup_name, 'Valor Total (R$)': tot_val})
+            # Arredondamento explícito em 2 casas decimais
+            chart_data.append({'Fornecedor': sup_name, 'Valor Total (R$)': round(tot_val, 2)})
         
         df_chart = pd.DataFrame(chart_data).sort_values(by='Valor Total (R$)', ascending=False)
         
