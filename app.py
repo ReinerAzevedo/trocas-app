@@ -6,7 +6,7 @@ from datetime import datetime
 
 # Configuração de página
 st.set_page_config(
-    page_title="Gerenciador de Trocas v4.6", 
+    page_title="Gerenciador de Trocas v4.7", 
     page_icon="🔄", 
     layout="wide"
 )
@@ -188,7 +188,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Cabeçalho de Versão
-versao_app = "v4.6"
+versao_app = "v4.7"
 if 'data_compilacao' not in st.session_state:
     st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
@@ -646,12 +646,12 @@ if st.session_state['suppliers_dict'] is not None:
                 use_container_width=True
             )
 
-        # HTML DO RECIBO ATUALIZADO COM LOGO VETORIAL P&B E NOVOS TEXTOS
+        # HTML DO RECIBO COM LOGO SVG À ESQUERDA E TÍTULO AMPLIADO
         html_recibo = f"""<html><head><meta charset='utf-8'><style>
-            body {{ font-family: 'Courier New', Courier, monospace; padding: 15px; max-width: 600px; margin: auto; border: 2px dashed #000; background-color: #fafafa; }}
-            .logo-container {{ text-align: center; margin-bottom: 8px; }}
-            .logo-circle {{ display: inline-block; width: 45px; height: 45px; border: 4px solid #000; border-radius: 50%; text-align: center; line-height: 40px; font-weight: bold; font-size: 28px; font-family: Arial, sans-serif; color: #000; }}
-            h2 {{ text-align: center; margin-top: 5px; margin-bottom: 5px; font-size: 13px; text-transform: uppercase; border-bottom: 2px solid #000; padding-bottom: 8px; line-height: 1.3; }}
+            body {{ font-family: 'Courier New', Courier, monospace; padding: 15px; max-width: 620px; margin: auto; border: 2px dashed #000; background-color: #fafafa; }}
+            .header-container {{ display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 12px; border-bottom: 2px solid #000; padding-bottom: 10px; }}
+            .logo-svg {{ width: 50px; height: 50px; flex-shrink: 0; }}
+            h2 {{ margin: 0; font-size: 15px; font-weight: bold; font-family: Arial, sans-serif; text-align: left; text-transform: uppercase; line-height: 1.25; color: #000; }}
             .info-box {{ font-size: 11px; margin-bottom: 12px; border-bottom: 1px solid #000; padding-bottom: 10px; line-height: 1.4; }}
             table {{ width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 12px; }}
             th {{ border-bottom: 2px solid #000; font-size: 11px; text-align: left; padding: 4px 0; }}
@@ -667,10 +667,13 @@ if st.session_state['suppliers_dict'] is not None:
             <div class="no-print">
                 <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar Recibo PDF</button>
             </div>
-            <div class="logo-container">
-                <div class="logo-circle">m</div>
+            <div class="header-container">
+                <svg class="logo-svg" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="44" stroke="black" stroke-width="8" fill="none" />
+                    <text x="50" y="69" font-family="'Arial Black', Arial, sans-serif" font-weight="900" font-size="54" text-anchor="middle" fill="black">m</text>
+                </svg>
+                <h2>RELAÇÃO DE TROCAS / DEVOLUÇÕES - APROVAÇÃO NF</h2>
             </div>
-            <h2>RELAÇÃO DE TROCAS / DEVOLUÇÕES - APROVAÇÃO NF</h2>
             <div class="info-box">
                 <b>LOJA:</b> LU 10-MONGAGUA<br>
                 <b>FORNECEDOR:</b> {supplier.upper()}<br>
