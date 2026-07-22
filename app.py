@@ -6,12 +6,12 @@ from datetime import datetime
 
 # Configuração de página
 st.set_page_config(
-    page_title="Gerenciador de Trocas v3.7", 
+    page_title="Gerenciador de Trocas v3.9", 
     page_icon="🔄", 
     layout="wide"
 )
 
-# Estilização CSS responsiva e compacta para smartphone
+# Estilização CSS completa com cores exclusivas por botão
 st.markdown("""
     <style>
     .version-header {
@@ -55,6 +55,75 @@ st.markdown("""
         border-radius: 3px !important;
         margin-left: 5px !important;
     }
+
+    /* UPLOAD CARDS DESTACADOS */
+    .upload-card-merc {
+        border: 2px solid #0056b3;
+        background-color: #f0f7ff;
+        padding: 10px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+    }
+    .upload-card-perec {
+        border: 2px solid #d9534f;
+        background-color: #fff5f5;
+        padding: 10px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+    }
+
+    /* ESTILIZAÇÃO DOS BOTÕES DA BARRA LATERAL DA ESQUERDA */
+    /* Botão Limpar Painel (Vermelho) */
+    div[data-testid="stSidebar"] div.stButton:nth-of-type(1) button {
+        background-color: #dc3545 !important;
+        color: white !important;
+        font-weight: bold !important;
+        border-radius: 6px !important;
+        border: none !important;
+    }
+
+    /* Botões Marcar e Desmarcar Exibidos */
+    div[data-testid="stSidebar"] div.stButton:nth-of-type(2) button {
+        background-color: #28a745 !important;
+        color: white !important;
+        font-weight: bold !important;
+    }
+    div[data-testid="stSidebar"] div.stButton:nth-of-type(3) button {
+        background-color: #6c757d !important;
+        color: white !important;
+        font-weight: bold !important;
+    }
+
+    /* Botão Excel (Verde Escuro) */
+    div[data-testid="stSidebar"] div.stDownloadButton:nth-of-type(1) button {
+        background-color: #107C41 !important;
+        color: white !important;
+        font-weight: bold !important;
+        border-radius: 6px !important;
+        border: none !important;
+    }
+
+    /* Botão WhatsApp HTML (Verde WhatsApp) */
+    div[data-testid="stSidebar"] div.stDownloadButton:nth-of-type(2) button {
+        background-color: #25D366 !important;
+        color: white !important;
+        font-weight: bold !important;
+        border-radius: 6px !important;
+        border: none !important;
+    }
+
+    /* BOTÕES DAS TABELAS (RELATÓRIO INDIVIDUAL E RECIBO) */
+    .stDownloadButton button[key*="btn_ind_"] {
+        background-color: #0275d8 !important;
+        color: white !important;
+        font-weight: bold !important;
+    }
+    .stDownloadButton button[key*="btn_rec_"] {
+        background-color: #d9534f !important;
+        color: white !important;
+        font-weight: bold !important;
+    }
+
     @media (max-width: 600px) {
         .stButton>button { width: 100% !important; padding: 4px !important; }
         .supplier-header { font-size: 15px !important; }
@@ -64,7 +133,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Cabeçalho de Versão
-versao_app = "v3.7"
+versao_app = "v3.9"
 if 'data_compilacao' not in st.session_state:
     st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
@@ -83,14 +152,18 @@ if 'usuario_planilha' not in st.session_state:
 if 'data_planilha_bruta' not in st.session_state:
     st.session_state['data_planilha_bruta'] = "Não identificada"
 
-# --- ÁREA DE UPLOAD ---
+# --- ÁREA DE UPLOAD COM DESTACADOS ---
 if st.session_state['suppliers_dict'] is None:
     st.write("Faça o upload das planilhas brutas de Mercearia e/ou Perecíveis:")
     col1, col2 = st.columns(2)
+    
     with col1:
-        file_mercearia = st.file_uploader("Planilha MERCEARIA (.xlsx)", type=["xlsx"], key="merc")
+        st.markdown('<div class="upload-card-merc"><b>🛒 MERCEARIA (Planilha Bruta)</b></div>', unsafe_allow_html=True)
+        file_mercearia = st.file_uploader("Anexar Mercearia (.xlsx)", type=["xlsx"], key="merc")
+        
     with col2:
-        file_pereciveis = st.file_uploader("Planilha PERECÍVEIS (.xlsx)", type=["xlsx"], key="perec")
+        st.markdown('<div class="upload-card-perec"><b>🥩 PERECÍVEIS (Planilha Bruta)</b></div>', unsafe_allow_html=True)
+        file_pereciveis = st.file_uploader("Anexar Perecíveis (.xlsx)", type=["xlsx"], key="perec")
 
     if file_mercearia or file_pereciveis:
         if st.button("🚀 Processar Planilhas Anexadas", use_container_width=True):
@@ -172,7 +245,7 @@ if st.session_state['suppliers_dict'] is None:
 if st.session_state['suppliers_dict'] is not None:
     suppliers_dict_full = st.session_state['suppliers_dict']
 
-    # 1. BOTÃO DE LIMPAR NO TOPO DA BARRA LATERAL
+    # 1. BOTÃO DE LIMPAR REDESTACADO EM VERMELHO
     if st.sidebar.button("🗑️ Limpar Painel / Novo Upload", use_container_width=True):
         for k in list(st.session_state.keys()):
             if k.startswith("cb_"):
@@ -184,7 +257,7 @@ if st.session_state['suppliers_dict'] is not None:
         st.session_state['usuario_planilha'] = "reinerca"
         st.rerun()
 
-    # 2. IDENTIFICAÇÃO DOS VISÍVEIS PELA BUSCA E FILTRO DE DEPARTAMENTO
+    # 2. SELEÇÃO DE FORNECEDORES
     st.sidebar.markdown("### 📋 Selecionar Fornecedores")
     busca = st.sidebar.text_input("🔍 Buscar fornecedor:", "", placeholder="Digite o nome...", key="txt_busca").strip().upper()
 
@@ -211,7 +284,7 @@ if st.session_state['suppliers_dict'] is not None:
 
     st.sidebar.caption(f"Selecionados acumulados: **{len(st.session_state['selected_sups'])}** de {len(suppliers_dict_full)}")
 
-    # 3. BASE FILTRADA ACUMULADA REAL
+    # 3. BASE FILTRADA
     suppliers_filtered = {
         k: v for k, v in suppliers_dict_full.items() 
         if k in st.session_state['selected_sups'] and (st.session_state['filtro_depto'] == "Ambas" or v[0]['Departamento'] == st.session_state['filtro_depto'])
@@ -242,12 +315,11 @@ if st.session_state['suppliers_dict'] is not None:
 
     nome_arquivo_base = f"{str_data_arquivo}-Trocas-{str_segmento_arquivo}"
 
-    # 4. GERAÇÃO DOS ARQUIVOS (EXCEL E HTML)
+    # 4. GERAÇÃO DOS ARQUIVOS
     buffer_excel = io.BytesIO()
     grand_total_qty = 0
     grand_total_val = 0.0
 
-    # MONTAGEM DA MENSAGEM PARA WHATSAPP
     wsp_text = f"🚨 *RESUMO DE TROCAS - LU 10 MONGAGUÁ*\n"
     wsp_text += f"📅 *Data Ref:* {st.session_state['data_planilha_bruta']}\n"
     wsp_text += f"👤 *Usuário:* {st.session_state['usuario_planilha']}\n"
@@ -331,7 +403,6 @@ if st.session_state['suppliers_dict'] is not None:
                 tag_crit = " <span class='crit'>⚠️ +60d</span>" if p['Critico'] else ""
                 html_print += f"<tr><td>{p['Produto']}{tag_crit}</td><td class='center'>{p['Código Interno']}</td><td class='center'>{p['Última Compra']}</td><td class='center'>{p['Estoque']}</td><td class='right'>R$ {p['Total']:,.2f}</td></tr>"
                 
-                # Detalhamento de itens no texto do WhatsApp
                 alerta_wsp = " ⚠️" if p['Critico'] else ""
                 wsp_text += f"  • {p['Produto']} (Cod: {p['Código Interno']}) - Qtd: {p['Estoque']} | R$ {p['Total']:,.2f}{alerta_wsp}\n"
 
@@ -366,10 +437,10 @@ if st.session_state['suppliers_dict'] is not None:
         ws.set_column(0, 0, 45)
         ws.set_column(1, 4, 15)
 
-    # 5. BOTÕES DE AÇÃO E CÓPIA RÁPIDA NO TOPO DA BARRA LATERAL
+    # 5. BOTÕES DE AÇÕES LATERAIS COM ÍCONES E CORES
     st.sidebar.markdown("### 📥 Ações")
     st.sidebar.download_button(
-        label="💾 Exportar Seleção para Excel",
+        label="📊 Exportar Seleção para Excel",
         data=buffer_excel.getvalue(),
         file_name=f"{nome_arquivo_base}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -377,7 +448,7 @@ if st.session_state['suppliers_dict'] is not None:
     )
     
     st.sidebar.download_button(
-        label="🌐 Baixar Relatório HTML (WhatsApp)",
+        label="💬 Baixar Relatório HTML (WhatsApp)",
         data=html_print,
         file_name=f"{nome_arquivo_base}.html",
         mime="text/html",
@@ -465,7 +536,7 @@ if st.session_state['suppliers_dict'] is not None:
 
     st.markdown("---")
 
-    # RENDERIZAÇÃO DAS TABELAS COM EXPORTAÇÃO INDIVIDUAL E RECIBO COM COMPROVANTE DE ASSINATURA
+    # RENDERIZAÇÃO DAS TABELAS COM BOTOES DESTACADOS E COLORIDOS
     for supplier, products in suppliers_filtered.items():
         depto_tag = products[0]['Departamento']
         st.markdown(f'<div class="supplier-header">{supplier.upper()} <span class="dept-tag">{depto_tag}</span></div>', unsafe_allow_html=True)
@@ -484,7 +555,6 @@ if st.session_state['suppliers_dict'] is not None:
 
         col_act1, col_act2 = st.columns(2)
 
-        # 1. HTML Tradicional do Fornecedor
         html_ind = f"""<html><head><meta charset='utf-8'><style>
             body {{ font-family: Arial; padding: 20px; }}
             h2 {{ color: red; text-align: center; }}
@@ -510,7 +580,6 @@ if st.session_state['suppliers_dict'] is not None:
             use_container_width=True
         )
 
-        # 2. HTML RECIBO COM VISUAL DESTACADO E PROTOCOLO DE ASSINATURA
         html_recibo = f"""<html><head><meta charset='utf-8'><style>
             body {{ font-family: 'Courier New', Courier, monospace; padding: 15px; max-width: 600px; margin: auto; border: 2px dashed #000; background-color: #fafafa; }}
             h2 {{ text-align: center; margin-bottom: 2px; text-transform: uppercase; border-bottom: 2px solid #000; padding-bottom: 8px; }}
