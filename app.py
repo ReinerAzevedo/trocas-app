@@ -6,12 +6,12 @@ from datetime import datetime
 
 # Configuração de página
 st.set_page_config(
-    page_title="Gerenciador de Trocas v4.5", 
+    page_title="Gerenciador de Trocas v4.6", 
     page_icon="🔄", 
     layout="wide"
 )
 
-# Estilização CSS de Alta Precisão e Alto Contraste
+# Estilização CSS de Alta Precisão
 st.markdown("""
     <style>
     .version-header {
@@ -188,7 +188,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Cabeçalho de Versão
-versao_app = "v4.5"
+versao_app = "v4.6"
 if 'data_compilacao' not in st.session_state:
     st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
@@ -498,7 +498,7 @@ if st.session_state['suppliers_dict'] is not None:
         ws.set_column(0, 0, 45)
         ws.set_column(1, 4, 15)
 
-    # 5. BOTÕES DE AÇÕES LATERAIS
+    # 5. BOTÕES DE AÇÕES LATERAIS COM MARCADORES
     st.sidebar.markdown("### 📥 Ações")
     
     st.sidebar.markdown('<div id="marker-excel"></div>', unsafe_allow_html=True)
@@ -519,6 +519,7 @@ if st.session_state['suppliers_dict'] is not None:
         use_container_width=True
     )
 
+    st.sidebar.markdown('<div id="marker-copia"></div>', unsafe_allow_html=True)
     with st.sidebar.expander("📲 Texto de Cópia Rápida (WhatsApp)"):
         st.text_area("Copie o texto abaixo e cole no WhatsApp:", value=wsp_text, height=200)
 
@@ -645,16 +646,19 @@ if st.session_state['suppliers_dict'] is not None:
                 use_container_width=True
             )
 
+        # HTML DO RECIBO ATUALIZADO COM LOGO VETORIAL P&B E NOVOS TEXTOS
         html_recibo = f"""<html><head><meta charset='utf-8'><style>
             body {{ font-family: 'Courier New', Courier, monospace; padding: 15px; max-width: 600px; margin: auto; border: 2px dashed #000; background-color: #fafafa; }}
-            h2 {{ text-align: center; margin-bottom: 2px; text-transform: uppercase; border-bottom: 2px solid #000; padding-bottom: 8px; }}
-            .info-box {{ font-size: 11px; margin-bottom: 15px; border-bottom: 1px solid #000; padding-bottom: 10px; line-height: 1.4; }}
-            table {{ width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 15px; }}
+            .logo-container {{ text-align: center; margin-bottom: 8px; }}
+            .logo-circle {{ display: inline-block; width: 45px; height: 45px; border: 4px solid #000; border-radius: 50%; text-align: center; line-height: 40px; font-weight: bold; font-size: 28px; font-family: Arial, sans-serif; color: #000; }}
+            h2 {{ text-align: center; margin-top: 5px; margin-bottom: 5px; font-size: 13px; text-transform: uppercase; border-bottom: 2px solid #000; padding-bottom: 8px; line-height: 1.3; }}
+            .info-box {{ font-size: 11px; margin-bottom: 12px; border-bottom: 1px solid #000; padding-bottom: 10px; line-height: 1.4; }}
+            table {{ width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 12px; }}
             th {{ border-bottom: 2px solid #000; font-size: 11px; text-align: left; padding: 4px 0; }}
             td {{ padding: 6px 0; font-size: 11px; border-bottom: 1px dotted #ccc; }}
-            .tot-box {{ border-top: 2px solid #000; border-bottom: 2px solid #000; font-size: 13px; font-weight: bold; padding: 8px 0; margin-bottom: 25px; }}
-            .sig-section {{ margin-top: 40px; display: flex; justify-content: space-between; font-size: 11px; text-align: center; }}
-            .sig-line {{ border-top: 1px solid #000; width: 45%; padding-top: 4px; }}
+            .tot-box {{ border-top: 2px solid #000; border-bottom: 2px solid #000; font-size: 13px; font-weight: bold; padding: 8px 0; margin-bottom: 20px; }}
+            .sig-section {{ margin-top: 35px; display: flex; justify-content: space-between; font-size: 10px; text-align: center; }}
+            .sig-line {{ border-top: 1px solid #000; width: 46%; padding-top: 4px; }}
             .center {{ text-align: center; }} .right {{ text-align: right; }}
             .no-print {{ text-align: center; margin-bottom: 15px; }}
             .btn-print {{ background-color: #000; color: #fff; border: none; padding: 8px 12px; font-weight: bold; cursor: pointer; }}
@@ -663,7 +667,10 @@ if st.session_state['suppliers_dict'] is not None:
             <div class="no-print">
                 <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar Recibo PDF</button>
             </div>
-            <h2>COMPROVANTE DE DEVOLUÇÃO / TROCA</h2>
+            <div class="logo-container">
+                <div class="logo-circle">m</div>
+            </div>
+            <h2>RELAÇÃO DE TROCAS / DEVOLUÇÕES - APROVAÇÃO NF</h2>
             <div class="info-box">
                 <b>LOJA:</b> LU 10-MONGAGUA<br>
                 <b>FORNECEDOR:</b> {supplier.upper()}<br>
@@ -682,9 +689,9 @@ if st.session_state['suppliers_dict'] is not None:
                 <span style='float:right;'>{sub_qty} itens — R$ {sub_val:,.2f}</span>
                 <div style='clear:both;'></div>
             </div>
-            <div style='font-size:10px; text-align:center; margin-bottom:30px;'>Declaro que recebi os itens discriminados acima para conferência/troca.</div>
+            <div style='font-size:10px; text-align:center; margin-bottom:25px;'>Declaro que conferi os itens discriminados acima para emissão da NF de troca/devolução.</div>
             <div class="sig-section">
-                <div class="sig-line">Assinatura Promotor / Repr.</div>
+                <div class="sig-line">Assinatura Promotor/Representante/Motorista</div>
                 <div class="sig-line" style="float:right;">Conferente da Loja</div>
                 <div style="clear:both;"></div>
             </div>
