@@ -6,12 +6,12 @@ from datetime import datetime
 
 # Configuração de página
 st.set_page_config(
-    page_title="Gerenciador de Trocas v4.2", 
+    page_title="Gerenciador de Trocas v4.3", 
     page_icon="🔄", 
     layout="wide"
 )
 
-# Estilização CSS com seletores estritos de altíssima prioridade (!important)
+# Estilização CSS de Alta Precisão para a Barra Lateral
 st.markdown("""
     <style>
     .version-header {
@@ -105,9 +105,10 @@ st.markdown("""
         border-radius: 6px !important;
     }
 
-    /* 3. BOTÕES DA BARRA LATERAL (SIDEBAR) */
-    /* Limpar Painel / Novo Upload (1º botão da sidebar) */
-    div[data-testid="stSidebar"] div.stButton:nth-of-type(1) button {
+    /* 3. CORREÇÃO DOS BOTÕES DA BARRA LATERAL (SIDEBAR) */
+    /* Limpar Painel / Novo Upload */
+    section[data-testid="stSidebar"] button:has(p:contains("Limpar")),
+    section[data-testid="stSidebar"] div.stButton:first-child button {
         background-color: #D32F2F !important;
         color: white !important;
         font-weight: bold !important;
@@ -115,22 +116,8 @@ st.markdown("""
         border: none !important;
     }
 
-    /* Marcar / Desmarcar */
-    div[data-testid="stSidebar"] div.stButton:nth-of-type(2) button {
-        background-color: #1976D2 !important;
-        color: white !important;
-        font-weight: bold !important;
-        border: none !important;
-    }
-    div[data-testid="stSidebar"] div.stButton:nth-of-type(3) button {
-        background-color: #E53935 !important;
-        color: white !important;
-        font-weight: bold !important;
-        border: none !important;
-    }
-
-    /* Exportar Excel (1º download button da sidebar) */
-    div[data-testid="stSidebar"] div.stDownloadButton:nth-of-type(1) button {
+    /* Exportar Excel */
+    section[data-testid="stSidebar"] div[data-testid="stDownloadButton"]:nth-of-type(1) button {
         background-color: #107C41 !important;
         color: white !important;
         font-weight: bold !important;
@@ -138,8 +125,8 @@ st.markdown("""
         border: none !important;
     }
 
-    /* Baixar Relatório HTML WhatsApp (2º download button da sidebar) */
-    div[data-testid="stSidebar"] div.stDownloadButton:nth-of-type(2) button {
+    /* Baixar Relatório HTML WhatsApp */
+    section[data-testid="stSidebar"] div[data-testid="stDownloadButton"]:nth-of-type(2) button {
         background-color: #25D366 !important;
         color: white !important;
         font-weight: bold !important;
@@ -147,14 +134,14 @@ st.markdown("""
         border: none !important;
     }
 
-    /* Sanfona Cópia Rápida */
-    div[data-testid="stSidebar"] details {
+    /* Caixa Expansível de Cópia Rápida */
+    section[data-testid="stSidebar"] details {
         border: 2px solid #00838F !important;
         background-color: #e0f7fa !important;
         border-radius: 6px !important;
     }
 
-    /* 4. BOTÕES DAS TABELAS (RELATÓRIO INDIVIDUAL E RECIBO NO CENTRO) */
+    /* 4. BOTÕES DAS TABELAS (RELATÓRIO INDIVIDUAL E RECIBO) */
     div[data-testid="stMainBlockContainer"] div.stDownloadButton:nth-of-type(1) button {
         background-color: #1E88E5 !important;
         color: white !important;
@@ -179,7 +166,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Cabeçalho de Versão
-versao_app = "v4.2"
+versao_app = "v4.3"
 if 'data_compilacao' not in st.session_state:
     st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
