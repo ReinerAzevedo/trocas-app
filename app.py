@@ -6,7 +6,7 @@ from datetime import datetime
 
 # Configuração de página
 st.set_page_config(
-    page_title="Gerenciador de Trocas v3.5", 
+    page_title="Gerenciador de Trocas v3.6", 
     page_icon="🔄", 
     layout="wide"
 )
@@ -32,7 +32,7 @@ st.markdown("""
         font-weight: bold !important;
         font-size: 14px !important;
         margin-top: 2px !important;
-        margin-bottom: 12px !important;
+        margin-bottom: 8px !important;
         border-bottom: 2px solid #FF0000;
         padding-bottom: 4px;
     }
@@ -55,6 +55,16 @@ st.markdown("""
         border-radius: 3px !important;
         margin-left: 5px !important;
     }
+    .alert-tag {
+        font-size: 9px !important;
+        font-weight: bold !important;
+        color: #d9534f !important;
+        background-color: #fdf2f2 !important;
+        border: 1px solid #d9534f !important;
+        padding: 1px 4px !important;
+        border-radius: 3px !important;
+        margin-left: 4px !important;
+    }
     @media (max-width: 600px) {
         .stButton>button { width: 100% !important; padding: 4px !important; }
         .supplier-header { font-size: 15px !important; }
@@ -64,7 +74,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Cabeçalho de Versão
-versao_app = "v3.5"
+versao_app = "v3.6"
 if 'data_compilacao' not in st.session_state:
     st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
@@ -128,15 +138,30 @@ if st.session_state['suppliers_dict'] is None:
                         if current_supplier not in temp_dict:
                             temp_dict[current_supplier] = []
                         
-                        data_compra = str(row['Última Compra']).split()[0] if pd.notna(row['Última Compra']) else ""
+                        data_compra_str = str(row['Última Compra']).split()[0] if pd.notna(row['Última Compra']) else ""
                         
+                        # Cálculo do Alerta de Troca Antiga (+60 dias)
+                        is_critico = False
+                        try:
+                            d_compra = datetime.strptime(data_compra_str, "%Y-%m-%d")
+                            if (datetime.now() - d_compra).days > 60:
+                                is_critico = True
+                        except:
+                            try:
+                                d_compra = datetime.strptime(data_compra_str, "%d/%m/%Y")
+                                if (datetime.now() - d_compra).days > 60:
+                                    is_critico = True
+                            except:
+                                pass
+
                         temp_dict[current_supplier].append({
                             'Produto': row['Produto'],
                             'Código Interno': int(row['Código Interno']),
-                            'Última Compra': data_compra,
+                            'Última Compra': data_compra_str,
                             'Estoque': int(row['Estoque']) if pd.notna(row['Estoque']) else 0,
                             'Total': float(row['Total']) if pd.notna(row['Total']) else 0.0,
-                            'Departamento': depto_name
+                            'Departamento': depto_name,
+                            'Critico': is_critico
                         })
 
             if file_mercearia: ler_planilha(file_mercearia, "MERCEARIA")
@@ -274,6 +299,7 @@ if st.session_state['suppliers_dict'] is not None:
             .grand {{ background: red; color: white; font-weight: bold; font-size: 13px; }}
             .center {{ text-align: center; }} .right {{ text-align: right; }}
             .tag {{ font-size: 8px; background: #eee; color: #333; padding: 1px 4px; margin-left: 4px; border-radius: 2px; font-weight: normal; }}
+            .crit {{ font-size: 8px; background: #fdf2f2; color: #d9534f; border: 1px solid #d9534f; padding: 1px 4px; margin-left: 4px; border-radius: 2px; font-weight: bold; }}
             .no-print {{ text-align: center; margin-bottom: 12px; }}
             .btn-print {{ background-color: #0078d4; color: white; border: none; padding: 8px 15px; font-size: 12px; font-weight: bold; border-radius: 4px; cursor: pointer; }}
             @media print {{ .no-print {{ display: none; }} }}
@@ -305,7 +331,8 @@ if st.session_state['suppliers_dict'] is not None:
                 ws.write(excel_row, 3, p['Estoque'], fmt_qty)
                 ws.write(excel_row, 4, p['Total'], fmt_money)
                 
-                html_print += f"<tr><td>{p['Produto']}</td><td class='center'>{p['Código Interno']}</td><td class='center'>{p['Última Compra']}</td><td class='center'>{p['Estoque']}</td><td class='right'>R$ {p['Total']:,.2f}</td></tr>"
+                tag_crit = " <span class='crit'>⚠️ +60d</span>" if p['Critico'] else ""
+                html_print += f"<tr><td>{p['Produto']}{tag_crit}</td><td class='center'>{p['Código Interno']}</td><td class='center'>{p['Última Compra']}</td><td class='center'>{p['Estoque']}</td><td class='right'>R$ {p['Total']:,.2f}</td></tr>"
                 
                 sub_qty += p['Estoque']
                 sub_val += p['Total']
@@ -408,12 +435,11 @@ if st.session_state['suppliers_dict'] is not None:
     if st.session_state['filtro_depto'] == "Ambas" and (tot_merc_qty > 0 and tot_perec_qty > 0):
         c_tot3.metric("TOTAL GERAL CONSOLIDADO", f"R$ {(tot_merc_val + tot_perec_val):,.2f}", f"{tot_merc_qty + tot_perec_qty} itens")
 
-    # --- GRÁFICO DINÂMICO FORMATADO COM 2 CASAS DECIMAIS ---
+    # --- GRÁFICO DINÂMICO ---
     if suppliers_filtered:
         chart_data = []
         for sup_name, prods in suppliers_filtered.items():
             tot_val = sum(p['Total'] for p in prods)
-            # Arredondamento explícito em 2 casas decimais
             chart_data.append({'Fornecedor': sup_name, 'Valor Total (R$)': round(tot_val, 2)})
         
         df_chart = pd.DataFrame(chart_data).sort_values(by='Valor Total (R$)', ascending=False)
@@ -430,6 +456,7 @@ if st.session_state['suppliers_dict'] is not None:
 
     st.markdown("---")
 
+    # RENDERIZAÇÃO DAS TABELAS COM EXPORTAÇÃO INDIVIDUAL E ALERTA CRÍTICO (SUGESTÕES 1 e 4)
     for supplier, products in suppliers_filtered.items():
         depto_tag = products[0]['Departamento']
         st.markdown(f'<div class="supplier-header">{supplier.upper()} <span class="dept-tag">{depto_tag}</span></div>', unsafe_allow_html=True)
@@ -437,10 +464,39 @@ if st.session_state['suppliers_dict'] is not None:
         sub_qty = sum(p['Estoque'] for p in products)
         sub_val = sum(p['Total'] for p in products)
 
-        prod_df = pd.DataFrame(products)[['Produto', 'Código Interno', 'Última Compra', 'Estoque', 'Total']]
+        prod_df = pd.DataFrame(products)[['Produto', 'Código Interno', 'Última Compra', 'Estoque', 'Total', 'Critico']]
         view_df = prod_df.copy()
+        
+        # Insere tag visual de alerta na coluna de produto se for troca antiga
+        view_df['Produto'] = view_df.apply(lambda r: f"⚠️ {r['Produto']} (+60d)" if r['Critico'] else r['Produto'], axis=1)
         view_df['Total'] = view_df['Total'].map('R$ {:,.2f}'.format)
-        st.dataframe(view_df, use_container_width=True, hide_index=True)
+        
+        st.dataframe(view_df[['Produto', 'Código Interno', 'Última Compra', 'Estoque', 'Total']], use_container_width=True, hide_index=True)
         st.markdown(f'<div class="total-supplier">TOTAL {supplier.upper()}: {sub_qty} itens — R$ {sub_val:,.2f}</div>', unsafe_allow_html=True)
+
+        # SUGESTÃO 4: Gerador de HTML Individual por Fornecedor
+        html_ind = f"""<html><head><meta charset='utf-8'><style>
+            body {{ font-family: Arial; padding: 20px; }}
+            h2 {{ color: red; text-align: center; }}
+            table {{ width: 100%; border-collapse: collapse; margin-top: 15px; }}
+            th {{ background: black; color: white; padding: 8px; font-size: 12px; }}
+            td {{ padding: 6px; font-size: 11px; border: 1px solid #ccc; }}
+            .sub {{ color: red; font-weight: bold; border-top: 2px solid red; }}
+            .center {{ text-align: center; }} .right {{ text-align: right; }}
+        </style></head><body>
+            <h2>Relatório de Troca: {supplier.upper()}</h2>
+            <p><b>Loja:</b> LU 10-MONGAGUA | <b>Data Referência:</b> {st.session_state['data_planilha_bruta']}</p>
+            <table><thead><tr><th>Produto</th><th>Código Interno</th><th>Última Compra</th><th class='center'>Estoque</th><th class='right'>Total</th></tr></thead><tbody>"""
+        for p in products:
+            html_ind += f"<tr><td>{p['Produto']}</td><td class='center'>{p['Código Interno']}</td><td class='center'>{p['Última Compra']}</td><td class='center'>{p['Estoque']}</td><td class='right'>R$ {p['Total']:,.2f}</td></tr>"
+        html_ind += f"<tr class='sub'><td>TOTAL {supplier.upper()}</td><td></td><td></td><td class='center'>{sub_qty}</td><td class='right'>R$ {sub_val:,.2f}</td></tr></tbody></table></body></html>"
+
+        st.download_button(
+            label=f"📄 Baixar Relatório Individual ({supplier.upper()})",
+            data=html_ind,
+            file_name=f"{str_data_arquivo}-Troca-{supplier.replace(' ', '_')}.html",
+            mime="text/html",
+            key=f"btn_ind_{supplier}"
+        )
 
     st.markdown(f'<div class="grand-total-box">TOTAL GERAL DOS SELECIONADOS<br>Estoque: {grand_total_qty} | R$ {grand_total_val:,.2f}</div>', unsafe_allow_html=True)
