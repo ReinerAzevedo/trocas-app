@@ -6,12 +6,12 @@ from datetime import datetime
 
 # Configuração de página
 st.set_page_config(
-    page_title="Gerenciador de Trocas v4.4", 
+    page_title="Gerenciador de Trocas v4.5", 
     page_icon="🔄", 
     layout="wide"
 )
 
-# Estilização CSS com Marcadores de Alta Precisão para a Barra Lateral e Painel
+# Estilização CSS de Alta Precisão e Alto Contraste
 st.markdown("""
     <style>
     .version-header {
@@ -105,8 +105,8 @@ st.markdown("""
         border-radius: 6px !important;
     }
 
-    /* 3. ESTILIZAÇÃO CIRÚRGICA DOS BOTÕES DA BARRA LATERAL (VIA MARCADORES) */
-    /* Limpar Painel (Vermelho Carmim) */
+    /* 3. BOTÕES DA BARRA LATERAL (SIDEBAR) */
+    /* Limpar Painel */
     div[data-testid="stElementContainer"]:has(#marker-limpar) + div[data-testid="stElementContainer"] button {
         background-color: #C62828 !important;
         color: white !important;
@@ -115,7 +115,7 @@ st.markdown("""
         border: none !important;
     }
 
-    /* Marcar e Desmarcar Exibidos */
+    /* Marcar e Desmarcar */
     div[data-testid="stElementContainer"]:has(#marker-marcar) + div[data-testid="stElementContainer"] button {
         background-color: #1976D2 !important;
         color: white !important;
@@ -138,7 +138,7 @@ st.markdown("""
         border: none !important;
     }
 
-    /* Baixar Relatório HTML WhatsApp (Verde WhatsApp Vibrante Claro) */
+    /* Baixar Relatório HTML WhatsApp (Verde WhatsApp Vibrante) */
     div[data-testid="stElementContainer"]:has(#marker-wsp) + div[data-testid="stElementContainer"] button {
         background-color: #25D366 !important;
         color: white !important;
@@ -147,27 +147,32 @@ st.markdown("""
         border: none !important;
     }
 
-    /* Sanfona Cópia Rápida (Teal Turquesa) */
-    div[data-testid="stElementContainer"]:has(#marker-copia) + div[data-testid="stElementContainer"] details {
+    /* Sanfona Cópia Rápida na Barra Lateral */
+    section[data-testid="stSidebar"] [data-testid="stExpander"],
+    section[data-testid="stSidebar"] details {
         border: 2px solid #00838F !important;
         background-color: #E0F7FA !important;
         border-radius: 6px !important;
     }
-    div[data-testid="stElementContainer"]:has(#marker-copia) + div[data-testid="stElementContainer"] summary {
+    section[data-testid="stSidebar"] [data-testid="stExpander"] summary,
+    section[data-testid="stSidebar"] details summary,
+    section[data-testid="stSidebar"] details summary * {
         color: #006064 !important;
         font-weight: bold !important;
     }
 
-    /* 4. BOTÕES DAS TABELAS (RELATÓRIO INDIVIDUAL E RECIBO NO CENTRO) */
-    div[data-testid="stMainBlockContainer"] div.stDownloadButton:nth-of-type(1) button {
-        background-color: #1E88E5 !important;
+    /* 4. BOTÕES POR FORNECEDOR NA TABELA CENTRAL */
+    /* Coluna 1: Relatório (Azul Cobalto) */
+    div[data-testid="stMainBlockContainer"] div[data-testid="stHorizontalBlock"] > div:nth-child(1) div.stDownloadButton button {
+        background-color: #1565C0 !important;
         color: white !important;
         font-weight: bold !important;
         border: none !important;
         border-radius: 6px !important;
     }
-    div[data-testid="stMainBlockContainer"] div.stDownloadButton:nth-of-type(2) button {
-        background-color: #E53935 !important;
+    /* Coluna 2: Recibo / Vale-Troca (VERMELHO ALERTA DESTACADO) */
+    div[data-testid="stMainBlockContainer"] div[data-testid="stHorizontalBlock"] > div:nth-child(2) div.stDownloadButton button {
+        background-color: #D32F2F !important;
         color: white !important;
         font-weight: bold !important;
         border: none !important;
@@ -183,7 +188,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Cabeçalho de Versão
-versao_app = "v4.4"
+versao_app = "v4.5"
 if 'data_compilacao' not in st.session_state:
     st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
@@ -296,7 +301,7 @@ if st.session_state['suppliers_dict'] is None:
 if st.session_state['suppliers_dict'] is not None:
     suppliers_dict_full = st.session_state['suppliers_dict']
 
-    # 1. BOTÃO DE LIMPAR PAINEL (COM MARCADOR EXCLUSIVO)
+    # 1. BOTÃO DE LIMPAR PAINEL
     st.sidebar.markdown('<div id="marker-limpar"></div>', unsafe_allow_html=True)
     if st.sidebar.button("🗑️ Limpar Painel / Novo Upload", use_container_width=True):
         for k in list(st.session_state.keys()):
@@ -493,7 +498,7 @@ if st.session_state['suppliers_dict'] is not None:
         ws.set_column(0, 0, 45)
         ws.set_column(1, 4, 15)
 
-    # 5. BOTÕES DE AÇÕES LATERAIS COM MARCADORES
+    # 5. BOTÕES DE AÇÕES LATERAIS
     st.sidebar.markdown("### 📥 Ações")
     
     st.sidebar.markdown('<div id="marker-excel"></div>', unsafe_allow_html=True)
@@ -514,7 +519,6 @@ if st.session_state['suppliers_dict'] is not None:
         use_container_width=True
     )
 
-    st.sidebar.markdown('<div id="marker-copia"></div>', unsafe_allow_html=True)
     with st.sidebar.expander("📲 Texto de Cópia Rápida (WhatsApp)"):
         st.text_area("Copie o texto abaixo e cole no WhatsApp:", value=wsp_text, height=200)
 
