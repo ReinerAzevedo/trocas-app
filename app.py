@@ -6,12 +6,12 @@ from datetime import datetime
 
 # Configuração de página
 st.set_page_config(
-    page_title="Gerenciador de Trocas v4.1", 
+    page_title="Gerenciador de Trocas v4.2", 
     page_icon="🔄", 
     layout="wide"
 )
 
-# Estilização CSS completa com seletores genéricos diretos para garantir a aplicação de cores
+# Estilização CSS com seletores estritos de altíssima prioridade (!important)
 st.markdown("""
     <style>
     .version-header {
@@ -72,15 +72,14 @@ st.markdown("""
         margin-bottom: 10px;
     }
 
-    /* 1. BOTÃO DE PROCESSAR PLANILHAS (TELA INICIAL) */
-    .btn-processar button {
+    /* 1. BOTÃO PROCESSAR PLANILHAS (TELA PRINCIPAL) */
+    div[data-testid="stMainBlockContainer"] div.stButton button {
         background-color: #2E7D32 !important;
         color: white !important;
         font-weight: bold !important;
         font-size: 16px !important;
-        border: none !important;
         border-radius: 6px !important;
-        padding: 8px !important;
+        border: none !important;
     }
 
     /* 2. BOTÕES DE FILTRO DE DEPARTAMENTO (TOPO) */
@@ -106,8 +105,9 @@ st.markdown("""
         border-radius: 6px !important;
     }
 
-    /* 3. BOTÕES DA BARRA LATERAL (USA ENVOLTÓRIOS DIV EXCLUSIVOS PARA NÃO FALHAR) */
-    .btn-limpar button {
+    /* 3. BOTÕES DA BARRA LATERAL (SIDEBAR) */
+    /* Limpar Painel / Novo Upload (1º botão da sidebar) */
+    div[data-testid="stSidebar"] div.stButton:nth-of-type(1) button {
         background-color: #D32F2F !important;
         color: white !important;
         font-weight: bold !important;
@@ -115,20 +115,22 @@ st.markdown("""
         border: none !important;
     }
 
-    .btn-marcar button {
-        background-color: #2E7D32 !important;
+    /* Marcar / Desmarcar */
+    div[data-testid="stSidebar"] div.stButton:nth-of-type(2) button {
+        background-color: #1976D2 !important;
         color: white !important;
         font-weight: bold !important;
         border: none !important;
     }
-    .btn-desmarcar button {
-        background-color: #455A64 !important;
+    div[data-testid="stSidebar"] div.stButton:nth-of-type(3) button {
+        background-color: #E53935 !important;
         color: white !important;
         font-weight: bold !important;
         border: none !important;
     }
 
-    .btn-excel button {
+    /* Exportar Excel (1º download button da sidebar) */
+    div[data-testid="stSidebar"] div.stDownloadButton:nth-of-type(1) button {
         background-color: #107C41 !important;
         color: white !important;
         font-weight: bold !important;
@@ -136,7 +138,8 @@ st.markdown("""
         border: none !important;
     }
 
-    .btn-wsp button {
+    /* Baixar Relatório HTML WhatsApp (2º download button da sidebar) */
+    div[data-testid="stSidebar"] div.stDownloadButton:nth-of-type(2) button {
         background-color: #25D366 !important;
         color: white !important;
         font-weight: bold !important;
@@ -144,23 +147,23 @@ st.markdown("""
         border: none !important;
     }
 
-    /* Cópia Rápida Expander Header */
+    /* Sanfona Cópia Rápida */
     div[data-testid="stSidebar"] details {
         border: 2px solid #00838F !important;
         background-color: #e0f7fa !important;
         border-radius: 6px !important;
     }
 
-    /* 4. BOTÕES POR FORNECEDOR (PAINEL CENTRAL) */
-    .btn-relatorio-ind button {
-        background-color: #1565C0 !important;
+    /* 4. BOTÕES DAS TABELAS (RELATÓRIO INDIVIDUAL E RECIBO NO CENTRO) */
+    div[data-testid="stMainBlockContainer"] div.stDownloadButton:nth-of-type(1) button {
+        background-color: #1E88E5 !important;
         color: white !important;
         font-weight: bold !important;
         border: none !important;
         border-radius: 6px !important;
     }
-    .btn-recibo-ind button {
-        background-color: #D84315 !important;
+    div[data-testid="stMainBlockContainer"] div.stDownloadButton:nth-of-type(2) button {
+        background-color: #E53935 !important;
         color: white !important;
         font-weight: bold !important;
         border: none !important;
@@ -176,7 +179,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Cabeçalho de Versão
-versao_app = "v4.1"
+versao_app = "v4.2"
 if 'data_compilacao' not in st.session_state:
     st.session_state['data_compilacao'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
@@ -209,7 +212,6 @@ if st.session_state['suppliers_dict'] is None:
         file_pereciveis = st.file_uploader("Anexar Perecíveis (.xlsx)", type=["xlsx"], key="perec")
 
     if file_mercearia or file_pereciveis:
-        st.markdown('<div class="btn-processar">', unsafe_allow_html=True)
         if st.button("🚀 Processar Planilhas Anexadas", use_container_width=True):
             temp_dict = {}
             extracted_info = {'user': None, 'date': None}
@@ -284,14 +286,12 @@ if st.session_state['suppliers_dict'] is None:
                 st.session_state['data_planilha_bruta'] = extracted_info['date'] if extracted_info['date'] else datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                     
                 st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
 
 # --- RENDERIZAÇÃO E FILTROS ---
 if st.session_state['suppliers_dict'] is not None:
     suppliers_dict_full = st.session_state['suppliers_dict']
 
     # 1. BOTÃO DE LIMPAR PAINEL
-    st.sidebar.markdown('<div class="btn-limpar">', unsafe_allow_html=True)
     if st.sidebar.button("🗑️ Limpar Painel / Novo Upload", use_container_width=True):
         for k in list(st.session_state.keys()):
             if k.startswith("cb_"):
@@ -302,7 +302,6 @@ if st.session_state['suppliers_dict'] is not None:
         st.session_state['data_planilha_bruta'] = "Não identificada"
         st.session_state['usuario_planilha'] = "reinerca"
         st.rerun()
-    st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
     # 2. SELEÇÃO DE FORNECEDORES
     st.sidebar.markdown("### 📋 Selecionar Fornecedores")
@@ -327,13 +326,9 @@ if st.session_state['suppliers_dict'] is not None:
 
     btn_col1, btn_col2 = st.sidebar.columns(2)
     with btn_col1:
-        st.markdown('<div class="btn-marcar">', unsafe_allow_html=True)
         st.button("✅ Marcar", on_click=marcar_visiveis, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
     with btn_col2:
-        st.markdown('<div class="btn-desmarcar">', unsafe_allow_html=True)
         st.button("❌ Desmarcar", on_click=desmarcar_visiveis, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
 
     st.sidebar.caption(f"Selecionados acumulados: **{len(st.session_state['selected_sups'])}** de {len(suppliers_dict_full)}")
 
@@ -490,10 +485,8 @@ if st.session_state['suppliers_dict'] is not None:
         ws.set_column(0, 0, 45)
         ws.set_column(1, 4, 15)
 
-    # 5. BOTÕES DE AÇÕES LATERAIS COM ENVOLTÓRIOS DIV EXCLUSIVOS
+    # 5. BOTÕES DE AÇÕES LATERAIS
     st.sidebar.markdown("### 📥 Ações")
-    
-    st.sidebar.markdown('<div class="btn-excel">', unsafe_allow_html=True)
     st.sidebar.download_button(
         label="📊 Exportar Seleção para Excel",
         data=buffer_excel.getvalue(),
@@ -501,9 +494,7 @@ if st.session_state['suppliers_dict'] is not None:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True
     )
-    st.sidebar.markdown('</div>', unsafe_allow_html=True)
     
-    st.sidebar.markdown('<div class="btn-wsp">', unsafe_allow_html=True)
     st.sidebar.download_button(
         label="💬 Baixar Relatório HTML (WhatsApp)",
         data=html_print,
@@ -511,7 +502,6 @@ if st.session_state['suppliers_dict'] is not None:
         mime="text/html",
         use_container_width=True
     )
-    st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
     with st.sidebar.expander("📲 Texto de Cópia Rápida (WhatsApp)"):
         st.text_area("Copie o texto abaixo e cole no WhatsApp:", value=wsp_text, height=200)
@@ -594,7 +584,7 @@ if st.session_state['suppliers_dict'] is not None:
 
     st.markdown("---")
 
-    # RENDERIZAÇÃO DAS TABELAS COM BOTOES COLORIDOS COM CLASSES EXCLUSIVAS
+    # RENDERIZAÇÃO DAS TABELAS
     for supplier, products in suppliers_filtered.items():
         depto_tag = products[0]['Departamento']
         st.markdown(f'<div class="supplier-header">{supplier.upper()} <span class="dept-tag">{depto_tag}</span></div>', unsafe_allow_html=True)
@@ -630,7 +620,6 @@ if st.session_state['suppliers_dict'] is not None:
         html_ind += f"<tr class='sub'><td>TOTAL {supplier.upper()}</td><td></td><td></td><td class='center'>{sub_qty}</td><td class='right'>R$ {sub_val:,.2f}</td></tr></tbody></table></body></html>"
 
         with col_act1:
-            st.markdown('<div class="btn-relatorio-ind">', unsafe_allow_html=True)
             st.download_button(
                 label=f"📄 Relatório ({supplier.upper()})",
                 data=html_ind,
@@ -639,7 +628,6 @@ if st.session_state['suppliers_dict'] is not None:
                 key=f"btn_ind_{supplier}",
                 use_container_width=True
             )
-            st.markdown('</div>', unsafe_allow_html=True)
 
         html_recibo = f"""<html><head><meta charset='utf-8'><style>
             body {{ font-family: 'Courier New', Courier, monospace; padding: 15px; max-width: 600px; margin: auto; border: 2px dashed #000; background-color: #fafafa; }}
@@ -687,7 +675,6 @@ if st.session_state['suppliers_dict'] is not None:
         </body></html>"""
 
         with col_act2:
-            st.markdown('<div class="btn-recibo-ind">', unsafe_allow_html=True)
             st.download_button(
                 label=f"🧾 Recibo / Vale-Troca ({supplier.upper()})",
                 data=html_recibo,
@@ -696,6 +683,5 @@ if st.session_state['suppliers_dict'] is not None:
                 key=f"btn_rec_{supplier}",
                 use_container_width=True
             )
-            st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown(f'<div class="grand-total-box">TOTAL GERAL DOS SELECIONADOS<br>Estoque: {grand_total_qty} | R$ {grand_total_val:,.2f}</div>', unsafe_allow_html=True)
